@@ -42,14 +42,15 @@ func main() {
 
 	db := &database.Database{}
 	//curl := &downloader.Curl{}
-	jsonClient := &client.JsonClient{}
-	id := &downloader.InBuilt{}
+	jc := &client.JsonClient{}
+	//id := &downloader.InBuilt{}
 
+	aria2 := &downloader.Aria2c{}
 	c := &core.Controller{}
 
 	c.Register(db)
-	c.Register(id)
-	c.Register(jsonClient)
+	c.Register(aria2)
+	c.Register(jc)
 
 	c.Poll()
 
