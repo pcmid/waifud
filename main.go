@@ -42,15 +42,16 @@ func main() {
 
 	db := &database.Database{}
 	//curl := &downloader.Curl{}
-	jc := &client.JsonClient{}
+	//jc := &client.JsonClient{}
 	//id := &downloader.InBuilt{}
 
 	aria2 := &downloader.Aria2c{}
+	telebot := &client.TeleBot{}
 	c := &core.Controller{}
 
 	c.Register(db)
 	c.Register(aria2)
-	c.Register(jc)
+	c.Register(telebot)
 
 	c.Poll()
 
