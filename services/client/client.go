@@ -1,9 +1,11 @@
 package client
 
-import "github.com/pcmid/waifud/core"
+import (
+	"github.com/pcmid/waifud/services"
+)
 
 type Client interface {
-	core.Service
+	services.Service
 	//Describe() string
 	Subscribe(url string)
 	UnSubscribe(url string)

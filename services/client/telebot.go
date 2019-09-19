@@ -2,7 +2,7 @@ package client
 
 import (
 	"github.com/pcmid/waifud/messages"
-	"github.com/pcmid/waifud/service/database"
+	"github.com/pcmid/waifud/services/database"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"

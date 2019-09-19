@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/pcmid/waifud/core"
-	"github.com/pcmid/waifud/service/client"
-	"github.com/pcmid/waifud/service/database"
-	"github.com/pcmid/waifud/service/downloader"
+	"github.com/pcmid/waifud/services/client"
+	"github.com/pcmid/waifud/services/database"
+	"github.com/pcmid/waifud/services/downloader"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
