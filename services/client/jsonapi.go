@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 	"github.com/pcmid/waifud/messages"
-	"github.com/pcmid/waifud/service/database"
+	"github.com/pcmid/waifud/services/database"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
