@@ -64,14 +64,14 @@ func (a *Aria2c) Download(_url string) {
 	}()
 
 	if err != nil {
-		log.Errorf("%s Failed to connect aria2 rpc server :%s", a.Name(), err)
+		log.Errorf("%s Failed to connect aria2 rpc server: %s", a.Name(), err)
 		return
 	}
 
 	gid, err := rpcc.AddURI(_url, rpc.Option{})
 
 	if err != nil {
-		log.Errorf("%s Failed to AddURL for aria2c :%s", a.Name(), err)
+		log.Errorf("%s Failed to AddURL for aria2c: %s", a.Name(), err)
 		return
 	}
 
