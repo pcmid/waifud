@@ -39,13 +39,11 @@ func (i *InBuilt) Handle(message messages.Message) {
 }
 
 func (i *InBuilt) Download(_url string) {
-	log.Infof("Download %s", _url)
+	log.Infof("%s Download %s", i.Name(), _url)
 	resp, _ := http.Get(_url)
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	u, _ := url.Parse(_url)
-
-	strings.LastIndex(u.Path, "/")
 
 	filename := "/tmp/" + u.Path[strings.LastIndex(u.Path, "/")+1:]
 
