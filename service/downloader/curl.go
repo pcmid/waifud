@@ -30,7 +30,7 @@ func (c *Curl) Serve() {
 }
 
 func (c *Curl) Describe() string {
-	return "curl"
+	return "Curl"
 }
 
 func (c *Curl) Handle(message messages.Message) {

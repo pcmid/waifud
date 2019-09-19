@@ -35,7 +35,7 @@ type Feed struct {
 }
 
 func (db *Database) Name() string {
-	return "database"
+	return "Database"
 }
 
 func (db *Database) Serve() {

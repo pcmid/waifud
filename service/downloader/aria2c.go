@@ -22,7 +22,7 @@ func (a *Aria2c) Init() {
 }
 
 func (a *Aria2c) Name() string {
-	return "aria2c"
+	return "Aria2c"
 }
 
 func (a *Aria2c) SetMessageChan(chan messages.Message) {
