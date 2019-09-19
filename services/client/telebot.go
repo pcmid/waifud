@@ -2,12 +2,17 @@ package client
 
 import (
 	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/services"
 	"github.com/pcmid/waifud/services/database"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
 	"time"
 )
+
+func init() {
+	services.ServiceMap["telebot"] = &TeleBot{}
+}
 
 type TeleBot struct {
 	BaseClient
@@ -43,7 +48,7 @@ func (t *TeleBot) commadUnsub(m *tb.Message) {
 
 func (t *TeleBot) Name() string {
 	//panic("implement me")
-	return "TeleBot"
+	return "telebot"
 }
 
 func (t *TeleBot) Init() {

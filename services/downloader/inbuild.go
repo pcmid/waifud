@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/services"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -10,6 +11,11 @@ import (
 import log "github.com/sirupsen/logrus"
 
 // the inbiuld.go just for test, dont use it
+
+func init()  {
+	services.ServiceMap["in-build"] = &InBuilt{}
+
+}
 
 type InBuilt struct {
 	BaseDownloader
@@ -20,7 +26,7 @@ func (i *InBuilt) Init() {
 }
 
 func (i *InBuilt) Name() string {
-	return "InBuilt"
+	return "in-build"
 }
 
 func (i *InBuilt) SetMessageChan(chan messages.Message) {

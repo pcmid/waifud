@@ -3,6 +3,7 @@ package database
 import (
 	"github.com/mmcdole/gofeed"
 	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"time"
@@ -14,6 +15,10 @@ const (
 	AddFeed int = 0x01
 	DelFeed     = 0x02
 )
+
+func init() {
+	services.ServiceMap["database"] = &Database{}
+}
 
 type Database struct {
 	rms chan messages.Message
@@ -36,7 +41,7 @@ type Feed struct {
 }
 
 func (db *Database) Name() string {
-	return "Database"
+	return "database"
 }
 
 func (db *Database) Serve() {
@@ -51,8 +56,8 @@ func (db *Database) Poll() {
 
 	minTtl := time.Duration(MIN_TTL)
 
-	if viper.IsSet("services.Database.MinTtl") {
-		minTtl = viper.GetDuration("services.Database.MinTtl")
+	if viper.IsSet("services.Database.min-ttl") {
+		minTtl = viper.GetDuration("services.Database.min-ttl")
 	}
 
 	tick := time.NewTicker(time.Second * minTtl)

@@ -3,11 +3,16 @@ package client
 import (
 	"encoding/json"
 	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/services"
 	"github.com/pcmid/waifud/services/database"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 )
+
+func init() {
+	services.ServiceMap["jsonapi"] = &JsonAPI{}
+}
 
 type JsonAPI struct {
 	BaseClient
@@ -19,7 +24,7 @@ func (j *JsonAPI) Init() {
 }
 
 func (j *JsonAPI) Name() string {
-	return "JsonAPI"
+	return "jsonapi"
 }
 
 type Data struct {
@@ -30,12 +35,10 @@ type Data struct {
 func (j *JsonAPI) Serve() {
 	//panic("implement me")
 
-
 	server := func(w http.ResponseWriter, r *http.Request) {
 		body, _ := ioutil.ReadAll(r.Body)
 
 		var data Data
-
 
 		if err := json.Unmarshal(body, &data); err == nil {
 			log.Trace(data)
