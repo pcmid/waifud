@@ -9,17 +9,17 @@ import (
 	"net/http"
 )
 
-type JsonClient struct {
+type JsonAPI struct {
 	BaseClient
 	sms chan messages.Message
 }
 
-func (jc *JsonClient) Init() {
+func (j *JsonAPI) Init() {
 	//panic("implement me")
 }
 
-func (jc *JsonClient) Name() string {
-	return "json client"
+func (j *JsonAPI) Name() string {
+	return "JsonAPI"
 }
 
 type Data struct {
@@ -27,7 +27,7 @@ type Data struct {
 	URL string `json:"url"`
 }
 
-func (jc *JsonClient) Serve() {
+func (j *JsonAPI) Serve() {
 	//panic("implement me")
 
 
@@ -41,13 +41,13 @@ func (jc *JsonClient) Serve() {
 			log.Trace(data)
 			switch data.Op {
 			case "sub":
-				jc.Send(&messages.DBMessage{
+				j.Send(&messages.DBMessage{
 					Code: database.AddFeed,
 					URL:  data.URL,
 				})
 
 			case "unsub":
-				jc.Send(&messages.DBMessage{
+				j.Send(&messages.DBMessage{
 					Code: database.DelFeed,
 					URL:  data.URL,
 				})
@@ -65,18 +65,18 @@ func (jc *JsonClient) Serve() {
 	}
 }
 
-func (jc *JsonClient) Handle(message messages.Message) {
+func (j *JsonAPI) Handle(message messages.Message) {
 	//panic("implement me")
 }
 
-func (jc *JsonClient) SetMessageChan(ms chan messages.Message) {
-	jc.sms = ms
+func (j *JsonAPI) SetMessageChan(ms chan messages.Message) {
+	j.sms = ms
 }
 
-func (jc *JsonClient) Send(message messages.Message) {
-	if jc.sms == nil {
+func (j *JsonAPI) Send(message messages.Message) {
+	if j.sms == nil {
 		return
 	}
 
-	jc.sms <- message
+	j.sms <- message
 }

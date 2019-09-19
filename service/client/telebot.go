@@ -42,7 +42,7 @@ func (t *TeleBot) commadUnsub(m *tb.Message) {
 
 func (t *TeleBot) Name() string {
 	//panic("implement me")
-	return "telebot"
+	return "TeleBot"
 }
 
 func (t *TeleBot) Init() {
