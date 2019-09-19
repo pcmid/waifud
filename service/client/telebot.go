@@ -4,6 +4,7 @@ import (
 	"github.com/pcmid/waifud/messages"
 	"github.com/pcmid/waifud/service/database"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
 	"time"
 )
@@ -47,9 +48,17 @@ func (t *TeleBot) Name() string {
 
 func (t *TeleBot) Init() {
 	//panic("implement me")
+
+	token := viper.GetString("services.TeleBot.token")
+
+	if token == "" {
+		log.Error("TeleBot token not found")
+		return
+	}
+
 	b, err := tb.NewBot(tb.Settings{
 		// the token just for test
-		Token:  "754444894:AAAFsW4v5gX875-CccWUsOxYftA_a5mG-gug",
+		Token:  token,
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 
@@ -58,8 +67,8 @@ func (t *TeleBot) Init() {
 		return
 	}
 
-	b.Handle("/hello", func(m *tb.Message) {
-		_, _ = b.Send(m.Sender, "hello world")
+	b.Handle("/ping", func(m *tb.Message) {
+		_, _ = b.Send(m.Sender, "pong!")
 	})
 
 	b.Handle("/sub", t.commadSub)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pcmid/waifud/messages"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/zyxar/argo/rpc"
 	"time"
 )
@@ -16,9 +17,21 @@ type Aria2c struct {
 }
 
 func (a *Aria2c) Init() {
-	a.rpcUrl = "http://127.0.0.1:6800/jsonrpc"
-	a.rpcSecret = "s"
 
+	a.rpcUrl = "http://127.0.0.1:6800/jsonrpc"
+	a.rpcSecret = ""
+
+	if viper.IsSet("services.aria2c.url") {
+		a.rpcUrl = viper.GetString("services.aria2c.url")
+	} else {
+		log.Warnf("aria2 rpc url not found, use %s", a.rpcUrl)
+	}
+
+	if viper.IsSet("services.aria2c.url") {
+		a.rpcSecret = viper.GetString("services.aria2c.url")
+	} else {
+		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
+	}
 }
 
 func (a *Aria2c) Name() string {
