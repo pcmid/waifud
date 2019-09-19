@@ -2,9 +2,10 @@ package main
 
 import (
 	"github.com/pcmid/waifud/core"
-	"github.com/pcmid/waifud/services/client"
-	"github.com/pcmid/waifud/services/database"
-	"github.com/pcmid/waifud/services/downloader"
+	"github.com/pcmid/waifud/services"
+	_ "github.com/pcmid/waifud/services/client"
+	_ "github.com/pcmid/waifud/services/database"
+	_ "github.com/pcmid/waifud/services/downloader"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
@@ -49,17 +50,12 @@ func main() {
 		log.Fatalf("Fatal error config file: %s", err)
 	}
 
-	db := &database.Database{}
-	japi := &client.JsonAPI{}
-	aria2c := &downloader.Aria2c{}
-	telebot := &client.TeleBot{}
-
 	c := &core.Controller{}
 
-	c.Register(japi)
-	c.Register(db)
-	c.Register(aria2c)
-	c.Register(telebot)
+	for service := range viper.GetStringMapStringSlice("services") {
+		log.Trace(service)
+		c.Register(services.CreateService(service))
+	}
 
 	c.Poll()
 

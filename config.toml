@@ -1,6 +1,6 @@
 [services]
     [services.Database]
-    MinTtl = 600
+    min-ttl = 600
     [services.TeleBot]
     token = ""
     [services.Aria2c]

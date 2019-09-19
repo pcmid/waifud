@@ -3,11 +3,16 @@ package downloader
 import (
 	"context"
 	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/zyxar/argo/rpc"
 	"time"
 )
+
+func init() {
+	services.ServiceMap["aria2c"] = &Aria2c{}
+}
 
 type Aria2c struct {
 	BaseDownloader
@@ -35,7 +40,7 @@ func (a *Aria2c) Init() {
 }
 
 func (a *Aria2c) Name() string {
-	return "Aria2c"
+	return "aria2c"
 }
 
 func (a *Aria2c) SetMessageChan(chan messages.Message) {
