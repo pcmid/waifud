@@ -25,11 +25,11 @@ func (c *Controller) Poll() chan messages.Message {
 	go func() {
 		for {
 			message := <-c.ms
-			log.Tracef("New Message to %s :%v", message.Reciver(), message.Message())
+			log.Tracef("New Message to %s: %v", message.Reciver(), message.Message())
 			services := c.Get(message.Reciver())
 
 			if services == nil {
-				log.Errorf("Failed to get recv for rms %s:%s:%v", message.Reciver(), message.Describe(), message.Message())
+				log.Errorf("Failed to get recv for rms %s: %s: %v", message.Reciver(), message.Describe(), message.Message())
 				continue
 			}
 

@@ -63,7 +63,7 @@ func (t *TeleBot) Init() {
 	})
 
 	if err != nil {
-		log.Errorf("Failed to init telebot :%s", err)
+		log.Errorf("Failed to init telebot: %s", err)
 		return
 	}
 

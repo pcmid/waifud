@@ -120,7 +120,7 @@ func (db *Database) Update() {
 	for url, feed := range db.feeds {
 		newData, err := gofeed.NewParser().ParseURL(url)
 		if err != nil {
-			log.Errorf("Failed to parse %s :%s\n", url, err.Error())
+			log.Errorf("Failed to parse %s: %s\n", url, err.Error())
 
 			feed.FiledCount++
 			if feed.FiledCount > 5 {
