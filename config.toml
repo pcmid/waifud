@@ -1,0 +1,8 @@
+[services]
+    [services.Database]
+    MinTtl = 600
+    [services.TeleBot]
+    token = ""
+    [services.Aria2c]
+    url = "http://127.0.0.1:6800/jsonrpc"
+    secret = "s"

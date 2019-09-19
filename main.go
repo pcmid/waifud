@@ -6,6 +6,7 @@ import (
 	"github.com/pcmid/waifud/service/database"
 	"github.com/pcmid/waifud/service/downloader"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"os"
 )
 
@@ -40,38 +41,27 @@ func init() {
 
 func main() {
 
-	db := &database.Database{}
-	//curl := &downloader.Curl{}
-	japi := &client.JsonAPI{}
-	ib := &downloader.InBuilt{}
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	err := viper.ReadInConfig()
 
+	if err != nil {
+		log.Fatalf("Fatal error config file: %s", err)
+	}
+
+	db := &database.Database{}
+	japi := &client.JsonAPI{}
 	aria2c := &downloader.Aria2c{}
 	telebot := &client.TeleBot{}
+
 	c := &core.Controller{}
 
 	c.Register(japi)
-	c.Register(ib)
 	c.Register(db)
 	c.Register(aria2c)
 	c.Register(telebot)
 
 	c.Poll()
-
-	//ms <- &messages.DBMessage{
-	//
-	//	Code: service.AddFeed,
-	//
-	//	URL: "https://bangumi.moe/rss/tags/548ee0ea4ab7379536f56354+548ee2ce4ab7379536f56358",
-	//}
-	//
-	//time.Sleep(10 * time.Second)
-	//
-	//ms <- &messages.DBMessage{
-	//
-	//	Code: service.AddFeed,
-	//
-	//	URL: "https://bangumi.moe/rss/latest",
-	//}
 
 	select {}
 }

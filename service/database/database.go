@@ -4,6 +4,7 @@ import (
 	"github.com/mmcdole/gofeed"
 	"github.com/pcmid/waifud/messages"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"time"
 )
 
@@ -41,7 +42,6 @@ func (db *Database) Name() string {
 func (db *Database) Serve() {
 	//db := new(Database)
 
-
 	log.Debug("database serve")
 
 	db.Poll()
@@ -49,7 +49,13 @@ func (db *Database) Serve() {
 
 func (db *Database) Poll() {
 
-	tick := time.NewTicker(time.Second * MIN_TTL)
+	minTtl := time.Duration(MIN_TTL)
+
+	if viper.IsSet("services.Database.MinTtl") {
+		minTtl = viper.GetDuration("services.Database.MinTtl")
+	}
+
+	tick := time.NewTicker(time.Second * minTtl)
 	for {
 
 		select {
