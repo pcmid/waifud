@@ -42,13 +42,15 @@ func main() {
 
 	db := &database.Database{}
 	//curl := &downloader.Curl{}
-	//jc := &client.JsonClient{}
-	//id := &downloader.InBuilt{}
+	jc := &client.JsonClient{}
+	ib := &downloader.InBuilt{}
 
 	aria2 := &downloader.Aria2c{}
 	telebot := &client.TeleBot{}
 	c := &core.Controller{}
 
+	c.Register(jc)
+	c.Register(ib)
 	c.Register(db)
 	c.Register(aria2)
 	c.Register(telebot)

@@ -43,7 +43,7 @@ func (a *Aria2c) Handle(message messages.Message) {
 }
 
 func (a *Aria2c) Download(_url string) {
-	log.Infof("Download %s", _url)
+	log.Infof("%s Download %s", a.Name(), _url)
 
 	rpcc, err := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 	defer func() {
@@ -51,14 +51,14 @@ func (a *Aria2c) Download(_url string) {
 	}()
 
 	if err != nil {
-		log.Errorf("Failed to connect aria2 rpc server :%s", err)
+		log.Errorf("%s Failed to connect aria2 rpc server :%s", a.Name(), err)
 		return
 	}
 
 	gid, err := rpcc.AddURI(_url, rpc.Option{})
 
 	if err != nil {
-		log.Errorf("Failed to AddURL for aria2c :%s", err)
+		log.Errorf("%s Failed to AddURL for aria2c :%s", a.Name(), err)
 		return
 	}
 
