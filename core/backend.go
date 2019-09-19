@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/pcmid/waifud/messages"
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 )
@@ -9,7 +8,7 @@ import (
 func init() {
 }
 
-func (c *Controller) Poll() chan messages.Message {
+func (c *Controller) Poll() {
 
 	for _, ss := range c.Services {
 
@@ -42,5 +41,5 @@ func (c *Controller) Poll() chan messages.Message {
 		}
 	}()
 
-	return c.ms
+	select {}
 }

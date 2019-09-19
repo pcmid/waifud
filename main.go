@@ -58,6 +58,4 @@ func main() {
 	}
 
 	c.Poll()
-
-	select {}
 }
