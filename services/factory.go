@@ -10,7 +10,7 @@ func init()  {
 	ServiceMap = make(map[string]Service)
 }
 
-func CreateService(name string) Service {
+func Get(name string) Service {
 	if s, ok := ServiceMap[name]; ok {
 		return s
 	}
