@@ -52,9 +52,9 @@ func main() {
 
 	c := &core.Controller{}
 
-	for service := range viper.GetStringMapStringSlice("services") {
-		log.Trace(service)
-		c.Register(services.CreateService(service))
+	for serviceName := range viper.GetStringMapStringSlice("services") {
+		log.Trace(serviceName)
+		c.Register(services.Get(serviceName))
 	}
 
 	c.Poll()
