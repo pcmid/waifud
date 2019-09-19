@@ -49,12 +49,13 @@ func (t *TeleBot) Init() {
 	//panic("implement me")
 	b, err := tb.NewBot(tb.Settings{
 		// the token just for test
-		Token:  "754444894:AAFsW4v5gX875-CccWUsOxYftA_a5mG-gug",
+		Token:  "754444894:AAAFsW4v5gX875-CccWUsOxYftA_a5mG-gug",
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
 
 	if err != nil {
 		log.Errorf("Failed to init telebot :%s", err)
+		return
 	}
 
 	b.Handle("/hello", func(m *tb.Message) {
@@ -69,6 +70,10 @@ func (t *TeleBot) Init() {
 
 func (t *TeleBot) Serve() {
 	//panic("implement me")
+	if t.bot == nil {
+		log.Errorf("Failed to start %s", t.Name())
+		return
+	}
 	t.bot.Start()
 }
 
