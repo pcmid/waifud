@@ -13,6 +13,7 @@ type Sender interface {
 
 type Service interface {
 	Type() string
+	Types() []string
 	Name() string
 	Init()
 	Serve()

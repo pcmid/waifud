@@ -1,5 +1,7 @@
 package messages
 
+import "fmt"
+
 type DBMessage struct {
 	Code int
 	URL  string
@@ -15,4 +17,8 @@ func (m *DBMessage) Describe() string {
 
 func (m *DBMessage) Message() interface{} {
 	return m
+}
+
+func (m *DBMessage) String() string {
+	return fmt.Sprintf("%#v", m)
 }

@@ -3,8 +3,8 @@ package core
 import (
 	"github.com/pcmid/waifud/messages"
 	"github.com/pcmid/waifud/services"
+	log "github.com/sirupsen/logrus"
 )
-
 
 type Controller struct {
 	ms       chan messages.Message
@@ -20,12 +20,21 @@ func (c *Controller) Register(service services.Service) {
 		c.ms = make(chan messages.Message)
 	}
 
-	if c.Services[service.Type()] == nil {
-		c.Services[service.Type()] = []services.Service{}
+	for _, t := range service.Types() {
+		if c.Services[t] == nil {
+			c.Services[t] = []services.Service{}
+		}
+		c.Services[t] = append(c.Services[t], service)
 	}
 
-	c.Services[service.Type()] = append(c.Services[service.Type()], service)
 	service.SetMessageChan(c.ms)
+
+	service.Init()
+
+	go func() {
+		log.Infof("Service %s Start...", service.Name())
+		service.Serve()
+	}()
 }
 
 func (c *Controller) RegisterSender(service services.Service) {

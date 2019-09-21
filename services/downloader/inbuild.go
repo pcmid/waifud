@@ -21,6 +21,10 @@ type InBuilt struct {
 	BaseDownloader
 }
 
+func (i *InBuilt) Types() []string {
+	panic("implement me")
+}
+
 func (i *InBuilt) Init() {
 	//panic("implement me")
 }

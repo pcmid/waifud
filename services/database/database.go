@@ -6,6 +6,7 @@ import (
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"net/url"
 	"time"
 )
 
@@ -25,6 +26,10 @@ type Database struct {
 	sms chan messages.Message
 
 	feeds map[string]*Feed
+}
+
+func (db *Database) Types() []string {
+	return []string{db.Type()}
 }
 
 func (db *Database) Init() {
@@ -122,10 +127,10 @@ func (db *Database) Update() {
 
 	log.Debug("try to update database")
 
-	for url, feed := range db.feeds {
-		newData, err := gofeed.NewParser().ParseURL(url)
+	for u, feed := range db.feeds {
+		newData, err := gofeed.NewParser().ParseURL(u)
 		if err != nil {
-			log.Errorf("Failed to parse %s: %s\n", url, err.Error())
+			log.Errorf("Failed to parse %s: %s\n", u, err.Error())
 
 			feed.FiledCount++
 			if feed.FiledCount > 5 {
@@ -138,14 +143,18 @@ func (db *Database) Update() {
 
 		updated := db.Merge(&Feed{
 			Feed: *newData,
-			URL:  url,
+			URL:  u,
 		})
 
 		//log.Trace(feed, updated)
 
 		for _, item := range updated {
-			for _, url := range item.Enclosures {
-				db.Send(&messages.DLMessage{URL: url.URL})
+			for _, enclosure := range item.Enclosures {
+				u, _ := url.Parse(enclosure.URL)
+				q := u.Query()
+				u.RawQuery = q.Encode()
+
+				db.Send(&messages.DLMessage{URL: u.String()})
 			}
 		}
 	}
