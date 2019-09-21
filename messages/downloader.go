@@ -16,3 +16,6 @@ func (d *DLMessage) Message() interface{} {
 	return d.URL
 }
 
+func (d *DLMessage) String() string {
+	return d.URL
+}

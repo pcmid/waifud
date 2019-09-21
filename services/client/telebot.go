@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/pcmid/waifud/messages"
 	"github.com/pcmid/waifud/services"
 	"github.com/pcmid/waifud/services/database"
@@ -18,6 +19,8 @@ type TeleBot struct {
 	BaseClient
 	bot *tb.Bot
 	sms chan messages.Message
+
+	chat tb.Recipient
 }
 
 func (t *TeleBot) commadSub(m *tb.Message) {
@@ -27,6 +30,9 @@ func (t *TeleBot) commadSub(m *tb.Message) {
 		return
 	}
 	log.Trace(feedUrl)
+
+	t.chat = m.Chat
+
 	t.Send(&messages.DBMessage{
 		Code: database.AddFeed,
 		URL:  feedUrl,
@@ -49,6 +55,11 @@ func (t *TeleBot) commadUnsub(m *tb.Message) {
 func (t *TeleBot) Name() string {
 	//panic("implement me")
 	return "telebot"
+}
+
+func (t *TeleBot) Types() []string {
+	//panic("implement me")
+	return []string{"client", "notifier"}
 }
 
 func (t *TeleBot) Init() {
@@ -79,6 +90,10 @@ func (t *TeleBot) Init() {
 	b.Handle("/sub", t.commadSub)
 	b.Handle("/unsub", t.commadUnsub)
 
+	b.Handle("/a", func(m *tb.Message) {
+		fmt.Printf("%#v", m)
+	})
+
 	t.bot = b
 }
 
@@ -92,7 +107,15 @@ func (t *TeleBot) Serve() {
 }
 
 func (t *TeleBot) Handle(message messages.Message) {
-	panic("implement me")
+	//panic("implement me")
+
+	if t.chat == nil {
+		return
+	}
+
+	msg := message.(*messages.ResultMessage)
+
+	_, _ = t.bot.Send(t.chat, "download complete: "+msg.Msg)
 }
 
 func (t *TeleBot) SetMessageChan(ms chan messages.Message) {

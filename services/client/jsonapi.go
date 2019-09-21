@@ -19,6 +19,11 @@ type JsonAPI struct {
 	sms chan messages.Message
 }
 
+func (j *JsonAPI) Types() []string {
+	//panic("implement me")
+	return []string{j.Type()}
+}
+
 func (j *JsonAPI) Init() {
 	//panic("implement me")
 }

@@ -1,21 +1,16 @@
 package messages
 
-
-
 type Message interface {
 	Reciver() string
 	Describe() string
 	Message() interface{}
+	String() string
 }
 
 type BaseMessage struct {
 	T string
 	D string
 	M interface{}
-}
-
-type ResultMessage struct {
-	M string
 }
 
 func (bm *BaseMessage) Reciver() string {
@@ -30,14 +25,6 @@ func (bm *BaseMessage) Message() interface{} {
 	return bm.M
 }
 
-func (r *ResultMessage) Reciver() string {
-	return "ResultMessage"
-}
-
-func (r *ResultMessage) Describe() string {
-	return "ResultMessage"
-}
-
-func (r *ResultMessage) Message() interface{} {
-	return r.M
+func (bm *BaseMessage) String() string {
+	return bm.M.(string)
 }
