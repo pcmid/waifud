@@ -7,6 +7,7 @@ import (
 	_ "github.com/pcmid/waifud/services/database"
 	_ "github.com/pcmid/waifud/services/downloader"
 	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"os"
 )
@@ -40,10 +41,13 @@ func init() {
 	log.SetFormatter(logFormatter)
 }
 
+var confFile = flag.StringP("config","c","config.toml", "config file")
+
 func main() {
 
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
+	flag.Parse()
+
+	viper.SetConfigFile(*confFile)
 	err := viper.ReadInConfig()
 
 	if err != nil {
@@ -53,8 +57,8 @@ func main() {
 	c := &core.Controller{}
 
 	for serviceName := range viper.GetStringMapStringSlice("service") {
-		log.Trace(serviceName)
 		c.Register(services.Get(serviceName))
+		log.Tracef("Registered %s", serviceName)
 	}
 
 	c.Poll()
