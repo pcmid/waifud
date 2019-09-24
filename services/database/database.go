@@ -61,9 +61,11 @@ func (db *Database) Poll() {
 
 	minTtl := time.Duration(MIN_TTL)
 
-	if viper.IsSet("services.Database.min-ttl") {
-		minTtl = viper.GetDuration("services.Database.min-ttl")
+	if viper.IsSet("service.Database.min-ttl") {
+		minTtl = viper.GetDuration("service.Database.min-ttl")
 	}
+
+	log.Tracef("set database min ttl %d", minTtl)
 
 	tick := time.NewTicker(time.Second * minTtl)
 	for {
