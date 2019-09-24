@@ -41,12 +41,19 @@ func init() {
 	log.SetFormatter(logFormatter)
 }
 
-var confFile = flag.StringP("config","c","config.toml", "config file")
+var confFile = flag.StringP("config", "c", "config.toml", "config file")
+var help = flag.BoolP("help", "h", false, "print this help")
 
 func main() {
 
 	flag.Parse()
 
+	if *help {
+		flag.PrintDefaults()
+		return
+	}
+
+	viper.SetConfigType("toml")
 	viper.SetConfigFile(*confFile)
 	err := viper.ReadInConfig()
 
