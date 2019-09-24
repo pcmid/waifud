@@ -65,12 +65,14 @@ func (t *TeleBot) Types() []string {
 func (t *TeleBot) Init() {
 	//panic("implement me")
 
-	token := viper.GetString("services.TeleBot.token")
+	token := viper.GetString("service.TeleBot.token")
 
 	if token == "" {
 		log.Error("TeleBot token not found")
 		return
 	}
+
+	log.Tracef("set telebot token %s", token)
 
 	b, err := tb.NewBot(tb.Settings{
 		// the token just for test

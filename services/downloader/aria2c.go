@@ -46,14 +46,17 @@ func (a *Aria2c) Init() {
 		U string
 	})
 
-	if viper.IsSet("services.aria2c.url") {
-		a.rpcUrl = viper.GetString("services.aria2c.url")
+	if viper.IsSet("service.aria2c.url") {
+		a.rpcUrl = viper.GetString("service.aria2c.url")
+		log.Tracef("set aria2c rpc url %s", a.rpcUrl)
 	} else {
 		log.Warnf("aria2 rpc url not found, use %s", a.rpcUrl)
 	}
 
-	if viper.IsSet("services.aria2c.secret") {
-		a.rpcSecret = viper.GetString("services.aria2c.secret")
+	if viper.IsSet("service.aria2c.secret") {
+		a.rpcSecret = viper.GetString("service.aria2c.secret")
+		log.Tracef("set aria2c rpc secret %s", a.rpcSecret)
+
 	} else {
 		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
 	}
