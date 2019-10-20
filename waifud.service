@@ -1,0 +1,14 @@
+[Unit]
+Description=waifud Service
+Requires=network.target
+After=dhcpcd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/waifud -c /etc/waifud/config.toml
+ExecReload=/usr/bin/kill -HUP $MAINPID
+RestartSec=1min
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
