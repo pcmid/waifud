@@ -18,6 +18,7 @@ CONFIG_PATH :
 [service]
     [service.database]
     min-ttl = 600					# rss 最小 ttl
+    saved-path = "waifud.gob"       # database 存储路径
 
     [service.telebot]
     token = ""						# telebot token
