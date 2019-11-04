@@ -1,12 +1,14 @@
 package database
 
 import (
+	"encoding/gob"
 	"github.com/mmcdole/gofeed"
 	"github.com/pcmid/waifud/messages"
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -25,7 +27,10 @@ type Database struct {
 	rms chan messages.Message
 	sms chan messages.Message
 
-	feeds map[string]*Feed
+	Feeds map[string]*Feed
+
+	minTTL    time.Duration
+	savedPath string
 }
 
 func (db *Database) Types() []string {
@@ -34,8 +39,33 @@ func (db *Database) Types() []string {
 
 func (db *Database) Init() {
 	//panic("implement me")
-	db.feeds = make(map[string]*Feed)
+	db.Feeds = make(map[string]*Feed)
 	db.rms = make(chan messages.Message)
+
+	db.minTTL = time.Duration(MIN_TTL)
+
+	if viper.IsSet("service.Database.min-ttl") {
+		db.minTTL = viper.GetDuration("service.Database.min-ttl")
+	}
+
+	log.Tracef("set database min ttl %d", db.minTTL)
+
+	db.savedPath = "waifud.gob"
+	if viper.IsSet("service.Database.saved-path") {
+		db.savedPath = viper.GetString("service.Database.saved-path")
+	}
+
+	log.Infof("database saved as  %s", db.savedPath)
+
+
+	isExist := func (filename string) bool {
+		_, err := os.Stat(filename)
+		return err == nil || os.IsExist(err)
+	}
+
+	if isExist(db.savedPath) {
+		db.restore(db.savedPath)
+	}
 }
 
 type Feed struct {
@@ -59,15 +89,7 @@ func (db *Database) Serve() {
 
 func (db *Database) Poll() {
 
-	minTtl := time.Duration(MIN_TTL)
-
-	if viper.IsSet("service.Database.min-ttl") {
-		minTtl = viper.GetDuration("service.Database.min-ttl")
-	}
-
-	log.Tracef("set database min ttl %d", minTtl)
-
-	tick := time.NewTicker(time.Second * minTtl)
+	tick := time.NewTicker(time.Second * db.minTTL)
 	for {
 
 		select {
@@ -82,23 +104,24 @@ func (db *Database) Poll() {
 
 			switch m.Code {
 			case AddFeed:
-				if feed, ok := db.feeds[m.URL]; ok {
+				if feed, ok := db.Feeds[m.URL]; ok {
 					//_, _ = fmt.Sscanf(res.M, "Feed %s already exsits\n", feed.Title)
 					log.Errorf("Feed %s already exsits", feed.Title)
 					continue
 				}
 
-				db.feeds[m.URL] = &Feed{}
-				//_, _ = fmt.Sscanf(res.M, "Add subscribe %s successf", db.feeds[m.URL].Title)
+				db.Feeds[m.URL] = &Feed{}
+				//_, _ = fmt.Sscanf(res.M, "Add subscribe %s successf", db.Feeds[m.URL].Title)
 				log.Infof("Add subscribe %s successfully", m.URL)
 
 				db.Update()
 			case DelFeed:
-				delete(db.feeds, m.URL)
+				delete(db.Feeds, m.URL)
 			}
 
 			//db.Send(res)
 		}
+		db.save()
 
 	}
 
@@ -106,7 +129,7 @@ func (db *Database) Poll() {
 
 func (db *Database) Merge(feed *Feed) (update []*gofeed.Item) {
 
-	old := db.feeds[feed.URL]
+	old := db.Feeds[feed.URL]
 
 	// new feed
 	if old.Feed.PublishedParsed == nil {
@@ -120,7 +143,7 @@ func (db *Database) Merge(feed *Feed) (update []*gofeed.Item) {
 		feed.Items = append(old.Items, update...)
 	}
 
-	db.feeds[feed.URL] = feed
+	db.Feeds[feed.URL] = feed
 
 	return
 }
@@ -129,7 +152,7 @@ func (db *Database) Update() {
 
 	log.Debug("try to update database")
 
-	for u, feed := range db.feeds {
+	for u, feed := range db.Feeds {
 		newData, err := gofeed.NewParser().ParseURL(u)
 		if err != nil {
 			log.Errorf("Failed to parse %s: %s\n", u, err.Error())
@@ -179,4 +202,39 @@ func (db *Database) Send(message messages.Message) {
 		return
 	}
 	db.sms <- message
+}
+
+func (db *Database) save() {
+
+	file, err := os.Create(db.savedPath)
+	defer func() {
+		_ = file.Close()
+	}()
+
+	if err == os.ErrExist {
+		file, _ = os.Open(db.savedPath)
+		defer func() {
+			_ = file.Close()
+		}()
+	} else if err != nil  {
+		log.Errorf("failed to save database: %s", err)
+		return
+	}
+
+	// only save the feeds
+	enc := gob.NewEncoder(file)
+	_ = enc.Encode(db.Feeds)
+}
+
+func (db *Database)restore(path string) {
+
+	file, err := os.Open(path)
+
+	if err != err {
+		log.Errorf("failed to restore database: %s", err)
+		return
+	}
+
+	dec := gob.NewDecoder(file)
+	_ = dec.Decode(&db.Feeds)
 }

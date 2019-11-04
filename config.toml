@@ -1,5 +1,6 @@
 [service]
     [service.database]
+    saved-path = "waifud.gob"
     min-ttl = 600
 
     [service.jsonapi]
