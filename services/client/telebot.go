@@ -62,6 +62,27 @@ func (t *TeleBot) Types() []string {
 	return []string{"client", "notifier"}
 }
 
+func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
+	tc := time.Tick(30 * time.Second)
+	for  {
+		<- tc
+		b, err := tb.NewBot(tb.Settings{
+			// the token just for test
+			Token:  token,
+			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+		})
+
+		if err == nil {
+			log.Info("Init telebot successfully")
+			return b
+		}
+	}
+}
+
+func (t * TeleBot)handleFunc(	)  {
+
+}
+
 func (t *TeleBot) Init() {
 	//panic("implement me")
 
@@ -82,7 +103,7 @@ func (t *TeleBot) Init() {
 
 	if err != nil {
 		log.Errorf("Failed to init telebot: %s", err)
-		return
+		b = t.initAfterFailed(token)
 	}
 
 	b.Handle("/ping", func(m *tb.Message) {

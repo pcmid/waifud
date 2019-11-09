@@ -29,9 +29,10 @@ func (c *Controller) Register(service services.Service) {
 
 	service.SetMessageChan(c.ms)
 
-	service.Init()
 
 	go func() {
+		service.Init()
+
 		log.Infof("Service %s Start...", service.Name())
 		service.Serve()
 	}()
