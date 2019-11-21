@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
+	"os"
 	"time"
 )
 
@@ -79,18 +80,14 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	}
 }
 
-func (t * TeleBot)handleFunc(	)  {
-
-}
-
 func (t *TeleBot) Init() {
 	//panic("implement me")
 
 	token := viper.GetString("service.TeleBot.token")
 
 	if token == "" {
-		log.Error("TeleBot token not found")
-		return
+		log.Error("TeleBot token not found, exit")
+		os.Exit(-1)
 	}
 
 	log.Tracef("set telebot token %s", token)
