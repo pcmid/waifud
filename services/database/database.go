@@ -2,8 +2,9 @@ package database
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/mmcdole/gofeed"
-	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -17,6 +18,7 @@ const MIN_TTL = 600
 const (
 	AddFeed int = 0x01
 	DelFeed     = 0x02
+	GetFeed     = 0x04
 )
 
 func init() {
@@ -24,8 +26,8 @@ func init() {
 }
 
 type Database struct {
-	rms chan messages.Message
-	sms chan messages.Message
+	rms chan *Message
+	sms chan core.Message
 
 	Feeds map[string]*Feed
 
@@ -33,14 +35,28 @@ type Database struct {
 	savedPath string
 }
 
-func (db *Database) Types() []string {
-	return []string{db.Type()}
+type Feed struct {
+	gofeed.Feed
+
+	URL        string
+	FiledCount int
+}
+
+type Message struct {
+	Code int
+	Url  string
+}
+
+func (db *Database) ListeningTypes() []string {
+	return []string{
+		"feed",
+	}
 }
 
 func (db *Database) Init() {
 	//panic("implement me")
 	db.Feeds = make(map[string]*Feed)
-	db.rms = make(chan messages.Message)
+	db.rms = make(chan *Message)
 
 	db.minTTL = time.Duration(MIN_TTL)
 
@@ -57,8 +73,7 @@ func (db *Database) Init() {
 
 	log.Infof("database saved as  %s", db.savedPath)
 
-
-	isExist := func (filename string) bool {
+	isExist := func(filename string) bool {
 		_, err := os.Stat(filename)
 		return err == nil || os.IsExist(err)
 	}
@@ -68,23 +83,29 @@ func (db *Database) Init() {
 	}
 }
 
-type Feed struct {
-	gofeed.Feed
-
-	URL        string
-	FiledCount int
-}
-
 func (db *Database) Name() string {
 	return "database"
 }
 
 func (db *Database) Serve() {
-	//db := new(Database)
-
 	log.Debug("database serve")
 
 	db.Poll()
+}
+
+func (db *Database) Handle(message core.Message) {
+	db.rms <- message.Message().(*Message)
+}
+
+func (db *Database) SetMessageChan(sms chan core.Message) {
+	db.sms = sms
+}
+
+func (db *Database) Send(message core.Message) {
+	if db.sms == nil {
+		return
+	}
+	db.sms <- message
 }
 
 func (db *Database) Poll() {
@@ -94,32 +115,53 @@ func (db *Database) Poll() {
 
 		select {
 		case <-tick.C:
-			db.Update()
+			db.update()
 
-		case m1 := <-db.rms:
-
-			m := m1.(*messages.DBMessage)
-
-			//res := &messages.ResultMessage{}
-
+		case m := <-db.rms:
 			switch m.Code {
 			case AddFeed:
-				if feed, ok := db.Feeds[m.URL]; ok {
-					//_, _ = fmt.Sscanf(res.M, "Feed %s already exsits\n", feed.Title)
+				if feed, ok := db.Feeds[m.Url]; ok {
 					log.Errorf("Feed %s already exsits", feed.Title)
+					db.Send(core.Message{
+						Type: "notify",
+						Msg:  fmt.Sprintf("订阅 %s 已经存在", db.Feeds[m.Url].Title),
+					})
 					continue
 				}
 
-				db.Feeds[m.URL] = &Feed{}
-				//_, _ = fmt.Sscanf(res.M, "Add subscribe %s successf", db.Feeds[m.URL].Title)
-				log.Infof("Add subscribe %s successfully", m.URL)
+				db.Feeds[m.Url] = &Feed{}
+				log.Infof("Add subscribe %s successfully", m.Url)
+				db.update()
 
-				db.Update()
+				db.Send(core.Message{
+					Type: "notify",
+					Msg:  fmt.Sprintf("订阅成功: %s", db.Feeds[m.Url].Title),
+				})
 			case DelFeed:
-				delete(db.Feeds, m.URL)
-			}
+				if feed, ok := db.Feeds[m.Url]; ok {
+					delete(db.Feeds, m.Url)
 
-			//db.Send(res)
+					db.Send(core.Message{
+						Type: "notify",
+						Msg:  fmt.Sprintf("成功取消订阅: %s", feed.Title),
+					})
+				} else {
+					db.Send(core.Message{
+						Type: "notify",
+						Msg:  "订阅不存在！",
+					})
+				}
+
+			case GetFeed:
+				var feeds []string
+				for _, f := range db.Feeds {
+					feeds = append(feeds, f.Title)
+				}
+				db.Send(core.Message{
+					Type: "feeds",
+					Msg:  feeds,
+				})
+			}
 		}
 		db.save()
 
@@ -127,7 +169,42 @@ func (db *Database) Poll() {
 
 }
 
-func (db *Database) Merge(feed *Feed) (update []*gofeed.Item) {
+func (db *Database) save() {
+
+	file, err := os.Create(db.savedPath)
+	defer func() {
+		_ = file.Close()
+	}()
+
+	if err == os.ErrExist {
+		file, _ = os.Open(db.savedPath)
+		defer func() {
+			_ = file.Close()
+		}()
+	} else if err != nil {
+		log.Errorf("failed to save database: %s", err)
+		return
+	}
+
+	// only save the feeds
+	enc := gob.NewEncoder(file)
+	_ = enc.Encode(db.Feeds)
+}
+
+func (db *Database) restore(path string) {
+
+	file, err := os.Open(path)
+
+	if err != err {
+		log.Errorf("failed to restore database: %s", err)
+		return
+	}
+
+	dec := gob.NewDecoder(file)
+	_ = dec.Decode(&db.Feeds)
+}
+
+func (db *Database) merge(feed *Feed) (update []*gofeed.Item) {
 
 	old := db.Feeds[feed.URL]
 
@@ -148,7 +225,7 @@ func (db *Database) Merge(feed *Feed) (update []*gofeed.Item) {
 	return
 }
 
-func (db *Database) Update() {
+func (db *Database) update() {
 
 	log.Debug("try to update database")
 
@@ -166,12 +243,10 @@ func (db *Database) Update() {
 
 		feed.FiledCount = 0
 
-		updated := db.Merge(&Feed{
+		updated := db.merge(&Feed{
 			Feed: *newData,
 			URL:  u,
 		})
-
-		//log.Trace(feed, updated)
 
 		for _, item := range updated {
 			for _, enclosure := range item.Enclosures {
@@ -179,62 +254,11 @@ func (db *Database) Update() {
 				q := u.Query()
 				u.RawQuery = q.Encode()
 
-				db.Send(&messages.DLMessage{URL: u.String()})
+				db.Send(core.Message{
+					Type: "enclosure",
+					Msg:  u.String(),
+				})
 			}
 		}
 	}
-}
-
-func (db *Database) Type() string {
-	return "database"
-}
-
-func (db *Database) Handle(message messages.Message) {
-	db.rms <- (message).(*messages.DBMessage)
-}
-
-func (db *Database) SetMessageChan(sms chan messages.Message) {
-	db.sms = sms
-}
-
-func (db *Database) Send(message messages.Message) {
-	if db.sms == nil {
-		return
-	}
-	db.sms <- message
-}
-
-func (db *Database) save() {
-
-	file, err := os.Create(db.savedPath)
-	defer func() {
-		_ = file.Close()
-	}()
-
-	if err == os.ErrExist {
-		file, _ = os.Open(db.savedPath)
-		defer func() {
-			_ = file.Close()
-		}()
-	} else if err != nil  {
-		log.Errorf("failed to save database: %s", err)
-		return
-	}
-
-	// only save the feeds
-	enc := gob.NewEncoder(file)
-	_ = enc.Encode(db.Feeds)
-}
-
-func (db *Database)restore(path string) {
-
-	file, err := os.Open(path)
-
-	if err != err {
-		log.Errorf("failed to restore database: %s", err)
-		return
-	}
-
-	dec := gob.NewDecoder(file)
-	_ = dec.Decode(&db.Feeds)
 }

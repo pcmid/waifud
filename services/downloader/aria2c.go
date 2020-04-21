@@ -2,7 +2,7 @@ package downloader
 
 import (
 	"context"
-	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -16,22 +16,26 @@ func init() {
 }
 
 type Aria2c struct {
-	BaseDownloader
-
 	rpcUrl    string
 	rpcSecret string
 
-	tasks map[string]string
-	sms   chan messages.Message
-	rms   chan struct {
-		G string
-		U string
-	}
+	missions map[string]*Mission
+	sms      chan core.Message
+	rms      chan *Mission
 }
 
-func (a *Aria2c) Types() []string {
-	//panic("implement me")
-	return []string{a.Type()}
+type Mission struct {
+	Gid string
+}
+
+func (a *Aria2c) Name() string {
+	return "aria2c"
+}
+
+func (a *Aria2c) ListeningTypes() []string {
+	return []string{
+		"enclosure",
+	}
 }
 
 func (a *Aria2c) Init() {
@@ -39,12 +43,9 @@ func (a *Aria2c) Init() {
 	a.rpcUrl = "http://127.0.0.1:6800/jsonrpc"
 	a.rpcSecret = ""
 
-	a.tasks = make(map[string]string)
+	a.missions = make(map[string]*Mission)
 
-	a.rms = make(chan struct {
-		G string
-		U string
-	})
+	a.rms = make(chan *Mission)
 
 	if viper.IsSet("service.aria2c.url") {
 		a.rpcUrl = viper.GetString("service.aria2c.url")
@@ -62,74 +63,65 @@ func (a *Aria2c) Init() {
 	}
 }
 
-func (a *Aria2c) Name() string {
-	return "aria2c"
-}
-
-func (a *Aria2c) SetMessageChan(ms chan messages.Message) {
-	//panic("implement me")
+func (a *Aria2c) SetMessageChan(ms chan core.Message) {
 	a.sms = ms
 }
 
-func (a *Aria2c) Send(message messages.Message) {
-	//panic("implement me")
+func (a *Aria2c) Send(message core.Message) {
 	a.sms <- message
 }
 
 func (a *Aria2c) Serve() {
-	//panic("implement me")
-
 	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
-
 	tick := time.NewTicker(2 * time.Second)
 
 	for {
-
 		select {
 		case <-tick.C:
-			for gid, _url := range a.tasks {
+			for gid, url := range a.missions {
 				status, _ := rpcc.TellStatus(gid)
 
 				if status.Status == "complete" {
-					log.Infof("%s download complete %s", a.Name(), _url)
+					log.Infof("%s download complete %s", a.Name(), url)
 
 					if followed := status.FollowedBy; followed != nil {
 
 						for _, g := range followed {
-							a.tasks[g] = ""
+							a.missions[g] = &Mission{
+								Gid: g,
+							}
 						}
 					} else {
 						for _, file := range status.Files {
-							a.Send(&messages.ResultMessage{
-								Status: "complete",
-								Msg:    file.Path[strings.LastIndex(file.Path, "/")+1:],
+							a.Send(core.Message{
+								Type: "notify",
+								Msg:  file.Path[strings.LastIndex(file.Path, "/")+1:],
 							})
 						}
 					}
-
-					delete(a.tasks, gid)
+					delete(a.missions, gid)
 				}
 
 			}
 
-		case newTask := <-a.rms:
-			a.tasks[newTask.G] = newTask.U
+		case mission := <-a.rms:
+			a.missions[mission.Gid] = mission
 		}
 	}
 
 }
 
-func (a *Aria2c) Handle(message messages.Message) {
-	_url := message.(*messages.DLMessage).URL
-	a.Download(_url)
+func (a *Aria2c) Handle(message core.Message) {
+	url := message.Message().(string)
+	a.Download(url)
 }
 
-func (a *Aria2c) Download(_url string) {
-	log.Infof("%s Download %s", a.Name(), _url)
+func (a *Aria2c) Download(url string) {
+	log.Infof("%s Download %s", a.Name(), url)
 
 	rpcc, err := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 	defer func() {
-		rpcc.Close()
+		_ = rpcc.Close()
 	}()
 
 	if err != nil {
@@ -137,7 +129,7 @@ func (a *Aria2c) Download(_url string) {
 		return
 	}
 
-	gid, err := rpcc.AddURI(_url, rpc.Option{})
+	gid, err := rpcc.AddURI(url, rpc.Option{})
 
 	if err != nil {
 		log.Errorf("%s Failed to AddURL for aria2c: %s", a.Name(), err)
@@ -146,9 +138,7 @@ func (a *Aria2c) Download(_url string) {
 
 	//log.Trace(Gid)
 
-	a.rms <- struct {
-		G string
-		U string
-	}{G: gid, U: _url}
-
+	a.rms <- &Mission{
+		Gid: gid,
+	}
 }

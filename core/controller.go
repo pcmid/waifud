@@ -1,52 +1,50 @@
 package core
 
 import (
-	"github.com/pcmid/waifud/messages"
-	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 )
 
 type Controller struct {
-	ms       chan messages.Message
-	Services map[string][]services.Service
+	ms       chan Message
+	Services map[string][]Service
 }
 
-func (c *Controller) Register(service services.Service) {
+func (c *Controller) Register(service Service) {
 	if c.Services == nil {
-		c.Services = make(map[string][]services.Service)
+		c.Services = make(map[string][]Service)
 	}
 
 	if c.ms == nil {
-		c.ms = make(chan messages.Message)
+		c.ms = make(chan Message)
 	}
 
-	for _, t := range service.Types() {
+	for _, t := range service.ListeningTypes() {
 		if c.Services[t] == nil {
-			c.Services[t] = []services.Service{}
+			c.Services[t] = []Service{}
 		}
 		c.Services[t] = append(c.Services[t], service)
 	}
 
 	service.SetMessageChan(c.ms)
 
-
 	go func() {
 		service.Init()
-
 		log.Infof("Service %s Start...", service.Name())
 		service.Serve()
 	}()
 }
 
-func (c *Controller) RegisterSender(service services.Service) {
+func (c *Controller) Poll() {
 
-	service.SetMessageChan(c.ms)
-}
+	for {
+		message := <-c.ms
+		log.Tracef("New Message: %s: %v", message.Type, message.Message())
+		rec := message.Type
 
-func (c *Controller) Get(serverName string) []services.Service {
-	if server, ok := c.Services[serverName]; ok {
-		return server
+		for _, service := range c.Services[rec] {
+			go func(service Service) {
+				service.Handle(message)
+			}(service)
+		}
 	}
-
-	return nil
 }

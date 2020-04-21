@@ -29,11 +29,12 @@ CONFIG_PATH :
 
 ### telebot
 ```
+/ping
 /sub url
 /ubsub url
+/getsub
 ```
-目前没有返回 (
 
 效果如下
 
-![]( https://i.imgur.com/rm4ovay.png)
+![Imgur](https://imgur.com/51a2jN9.png)

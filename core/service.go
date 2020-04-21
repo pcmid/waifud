@@ -1,23 +1,20 @@
-package services
+package core
 
-import "github.com/pcmid/waifud/messages"
-
-type Reciver interface {
-	Handle(message messages.Message)
+type Receiver interface {
+	Handle(message Message)
 }
 
 type Sender interface {
-	SetMessageChan(chan messages.Message)
-	Send(message messages.Message)
+	SetMessageChan(chan Message)
+	Send(message Message)
 }
 
 type Service interface {
-	Type() string
-	Types() []string
 	Name() string
+	ListeningTypes() []string
 	Init()
 	Serve()
 
-	Reciver
+	Receiver
 	Sender
 }

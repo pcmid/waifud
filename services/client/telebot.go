@@ -2,13 +2,14 @@ package client
 
 import (
 	"fmt"
-	"github.com/pcmid/waifud/messages"
+	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	"github.com/pcmid/waifud/services/database"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -17,72 +18,26 @@ func init() {
 }
 
 type TeleBot struct {
-	BaseClient
 	bot *tb.Bot
-	sms chan messages.Message
+
+	rms chan core.Message
+	sms chan core.Message
 
 	chat tb.Recipient
 }
 
-func (t *TeleBot) commadSub(m *tb.Message) {
-	feedUrl := m.Payload
-	if feedUrl == "" {
-		_, _ = t.bot.Send(m.Sender, "useage :/sub URL")
-		return
-	}
-	log.Trace(feedUrl)
-
-	t.chat = m.Chat
-
-	t.Send(&messages.DBMessage{
-		Code: database.AddFeed,
-		URL:  feedUrl,
-	})
-}
-
-func (t *TeleBot) commadUnsub(m *tb.Message) {
-	feedUrl := m.Payload
-	if feedUrl == "" {
-		_, _ = t.bot.Send(m.Sender, "useage :/unsub URL")
-		return
-	}
-	log.Trace(feedUrl)
-	t.Send(&messages.DBMessage{
-		Code: database.DelFeed,
-		URL:  feedUrl,
-	})
-}
-
 func (t *TeleBot) Name() string {
-	//panic("implement me")
 	return "telebot"
 }
 
-func (t *TeleBot) Types() []string {
-	//panic("implement me")
-	return []string{"client", "notifier"}
-}
-
-func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
-	tc := time.Tick(30 * time.Second)
-	for  {
-		<- tc
-		b, err := tb.NewBot(tb.Settings{
-			// the token just for test
-			Token:  token,
-			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
-		})
-
-		if err == nil {
-			log.Info("Init telebot successfully")
-			return b
-		}
+func (t *TeleBot) ListeningTypes() []string {
+	return []string{
+		"feeds",
+		"notify",
 	}
 }
 
 func (t *TeleBot) Init() {
-	//panic("implement me")
-
 	token := viper.GetString("service.TeleBot.token")
 
 	if token == "" {
@@ -107,8 +62,9 @@ func (t *TeleBot) Init() {
 		_, _ = b.Send(m.Sender, "pong!")
 	})
 
-	b.Handle("/sub", t.commadSub)
-	b.Handle("/unsub", t.commadUnsub)
+	b.Handle("/sub", t.commandSub)
+	b.Handle("/unsub", t.commandUnsub)
+	b.Handle("/getsub", t.commandGetsub)
 
 	b.Handle("/a", func(m *tb.Message) {
 		fmt.Printf("%#v", m)
@@ -118,7 +74,6 @@ func (t *TeleBot) Init() {
 }
 
 func (t *TeleBot) Serve() {
-	//panic("implement me")
 	if t.bot == nil {
 		log.Errorf("Failed to start %s", t.Name())
 		return
@@ -126,24 +81,102 @@ func (t *TeleBot) Serve() {
 	t.bot.Start()
 }
 
-func (t *TeleBot) Handle(message messages.Message) {
-	//panic("implement me")
-
+func (t *TeleBot) Handle(message core.Message) {
 	if t.chat == nil {
 		return
 	}
 
-	msg := message.(*messages.ResultMessage)
+	switch message.Type {
+	case "notify":
+		_, _ = t.bot.Send(t.chat, message.Message().(string))
+	case "feeds":
+		feeds := message.Message().([]string)
+		if len(feeds) == 0 {
+			_, _ = t.bot.Send(t.chat, "未找到订阅")
+			return
+		}
 
-	_, _ = t.bot.Send(t.chat, "download complete: "+msg.Msg)
+		resp := strings.Builder{}
+
+		for _, url := range feeds {
+			resp.WriteString(url)
+			resp.WriteRune('\n')
+		}
+		_, _ = t.bot.Send(t.chat, resp.String())
+	}
 }
 
-func (t *TeleBot) SetMessageChan(ms chan messages.Message) {
-	//panic("implement me")
+func (t *TeleBot) commandSub(m *tb.Message) {
+	url := m.Payload
+	if url == "" {
+		_, _ = t.bot.Send(m.Sender, "useage :/sub URL")
+		return
+	}
+	log.Trace(url)
+
+	t.chat = m.Chat
+
+	t.Send(core.Message{
+		Type: "feed",
+		Msg: &database.Message{
+			Code: database.AddFeed,
+			Url:  url,
+		},
+	})
+}
+
+func (t *TeleBot) commandUnsub(m *tb.Message) {
+	url := m.Payload
+	if url == "" {
+		_, _ = t.bot.Send(m.Sender, "useage :/unsub URL")
+		return
+	}
+	log.Trace(url)
+
+	t.chat = m.Chat
+
+	t.Send(core.Message{
+		Type: "feed",
+		Msg: &database.Message{
+			Code: database.DelFeed,
+			Url:  url,
+		},
+	})
+}
+
+func (t *TeleBot) commandGetsub(m *tb.Message) {
+	t.chat = m.Chat
+
+	t.Send(core.Message{
+		Type: "feed",
+		Msg: &database.Message{
+			Code: database.GetFeed,
+			Url:  "",
+		},
+	})
+}
+
+func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
+	tc := time.Tick(30 * time.Second)
+	for {
+		<-tc
+		b, err := tb.NewBot(tb.Settings{
+			// the token just for test
+			Token:  token,
+			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+		})
+
+		if err == nil {
+			log.Info("Init telebot successfully")
+			return b
+		}
+	}
+}
+
+func (t *TeleBot) SetMessageChan(ms chan core.Message) {
 	t.sms = ms
 }
 
-func (t *TeleBot) Send(message messages.Message) {
-	//panic("implement me")
+func (t *TeleBot) Send(message core.Message) {
 	t.sms <- message
 }

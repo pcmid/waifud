@@ -1,16 +1,8 @@
-package message
+package core
 
 type Message struct {
-	Receiver string
-	Msg      interface{}
-}
-
-//func (m *NotifierMessage) Reciver() string {
-//	return "notifier"
-//}
-
-func (m *Message) Describe() string {
-	return "Result message"
+	Type string
+	Msg  interface{}
 }
 
 func (m *Message) Message() interface{} {
