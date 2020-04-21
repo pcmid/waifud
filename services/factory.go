@@ -1,16 +1,17 @@
 package services
 
 import (
+	"github.com/pcmid/waifud/core"
 	log "github.com/sirupsen/logrus"
 )
 
-var ServiceMap map[string]Service
+var ServiceMap map[string]core.Service
 
 func init()  {
-	ServiceMap = make(map[string]Service)
+	ServiceMap = make(map[string]core.Service)
 }
 
-func Get(name string) Service {
+func Get(name string) core.Service {
 	if s, ok := ServiceMap[name]; ok {
 		return s
 	}
