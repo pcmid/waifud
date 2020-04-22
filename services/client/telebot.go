@@ -117,7 +117,7 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 	}
 	log.Trace(url)
 
-	t.chat = m.Chat
+	t.chat = m.Sender
 
 	t.Send(core.Message{
 		Type: "subscription",
@@ -136,7 +136,7 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 	}
 	log.Trace(url)
 
-	t.chat = m.Chat
+	t.chat = m.Sender
 
 	t.Send(core.Message{
 		Type: "subscription",
@@ -148,7 +148,7 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 }
 
 func (t *TeleBot) commandGetSub(m *tb.Message) {
-	t.chat = m.Chat
+	t.chat = m.Sender
 
 	t.Send(core.Message{
 		Type: "subscription",
@@ -160,7 +160,7 @@ func (t *TeleBot) commandGetSub(m *tb.Message) {
 }
 
 func (t *TeleBot) commandLink(m *tb.Message) {
-	t.chat = m.Chat
+	t.chat = m.Sender
 
 	link := m.Payload
 
