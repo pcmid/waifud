@@ -20,6 +20,7 @@ CONFIG_PATH :
     min-ttl = 600					# rss 最小 ttl
     saved-path = "waifud.gob"       # database 存储路径
 
+
     [service.telebot]
     token = ""						# telebot token
 
@@ -34,6 +35,7 @@ CONFIG_PATH :
 /sub url
 /ubsub url
 /getsub
+/link url
 ```
 
 效果如下

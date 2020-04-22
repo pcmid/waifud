@@ -63,12 +63,9 @@ func (t *TeleBot) Init() {
 	})
 
 	b.Handle("/sub", t.commandSub)
-	b.Handle("/unsub", t.commandUnsub)
-	b.Handle("/getsub", t.commandGetsub)
-
-	b.Handle("/a", func(m *tb.Message) {
-		fmt.Printf("%#v", m)
-	})
+	b.Handle("/unsub", t.commandUnSub)
+	b.Handle("/getsub", t.commandGetSub)
+	b.Handle("/link", t.commandLink)
 
 	t.bot = b
 }
@@ -90,19 +87,25 @@ func (t *TeleBot) Handle(message core.Message) {
 	case "notify":
 		_, _ = t.bot.Send(t.chat, message.Message().(string))
 	case "feeds":
-		feeds := message.Message().([]string)
+		feeds := message.Message().(map[string]*database.Feed)
 		if len(feeds) == 0 {
-			_, _ = t.bot.Send(t.chat, "未找到订阅")
+			_, _ = t.bot.Send(t.chat, "未找到订阅!")
 			return
 		}
 
 		resp := strings.Builder{}
+		resp.WriteString("订阅如下:\n")
 
-		for _, url := range feeds {
-			resp.WriteString(url)
-			resp.WriteRune('\n')
+		for _, feed := range feeds {
+			resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
 		}
-		_, _ = t.bot.Send(t.chat, resp.String())
+		_, _ = t.bot.Send(t.chat, resp.String(), &tb.SendOptions{
+			ReplyTo:               nil,
+			ReplyMarkup:           nil,
+			DisableWebPagePreview: true,
+			DisableNotification:   false,
+			ParseMode:             tb.ModeMarkdown,
+		})
 	}
 }
 
@@ -117,15 +120,15 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 	t.chat = m.Chat
 
 	t.Send(core.Message{
-		Type: "feed",
-		Msg: &database.Message{
-			Code: database.AddFeed,
-			Url:  url,
+		Type: "subscription",
+		Msg: &database.Subscription{
+			Op:  database.Sub,
+			Url: url,
 		},
 	})
 }
 
-func (t *TeleBot) commandUnsub(m *tb.Message) {
+func (t *TeleBot) commandUnSub(m *tb.Message) {
 	url := m.Payload
 	if url == "" {
 		_, _ = t.bot.Send(m.Sender, "useage :/unsub URL")
@@ -136,23 +139,34 @@ func (t *TeleBot) commandUnsub(m *tb.Message) {
 	t.chat = m.Chat
 
 	t.Send(core.Message{
-		Type: "feed",
-		Msg: &database.Message{
-			Code: database.DelFeed,
-			Url:  url,
+		Type: "subscription",
+		Msg: &database.Subscription{
+			Op:  database.UnSub,
+			Url: url,
 		},
 	})
 }
 
-func (t *TeleBot) commandGetsub(m *tb.Message) {
+func (t *TeleBot) commandGetSub(m *tb.Message) {
 	t.chat = m.Chat
 
 	t.Send(core.Message{
-		Type: "feed",
-		Msg: &database.Message{
-			Code: database.GetFeed,
-			Url:  "",
+		Type: "subscription",
+		Msg: &database.Subscription{
+			Op:  database.GetSub,
+			Url: "",
 		},
+	})
+}
+
+func (t *TeleBot) commandLink(m *tb.Message) {
+	t.chat = m.Chat
+
+	link := m.Payload
+
+	t.Send(core.Message{
+		Type: "enclosure",
+		Msg:  link,
 	})
 }
 
@@ -161,7 +175,6 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	for {
 		<-tc
 		b, err := tb.NewBot(tb.Settings{
-			// the token just for test
 			Token:  token,
 			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 		})

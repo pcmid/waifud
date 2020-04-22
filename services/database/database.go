@@ -16,9 +16,9 @@ import (
 const MIN_TTL = 600
 
 const (
-	AddFeed int = 0x01
-	DelFeed     = 0x02
-	GetFeed     = 0x04
+	Sub    int = 0x01
+	UnSub      = 0x02
+	GetSub     = 0x04
 )
 
 func init() {
@@ -26,7 +26,7 @@ func init() {
 }
 
 type Database struct {
-	rms chan *Message
+	rms chan *Subscription
 	sms chan core.Message
 
 	Feeds map[string]*Feed
@@ -42,21 +42,20 @@ type Feed struct {
 	FiledCount int
 }
 
-type Message struct {
-	Code int
-	Url  string
+type Subscription struct {
+	Op  int
+	Url string
 }
 
 func (db *Database) ListeningTypes() []string {
 	return []string{
-		"feed",
+		"subscription",
 	}
 }
 
 func (db *Database) Init() {
-	//panic("implement me")
 	db.Feeds = make(map[string]*Feed)
-	db.rms = make(chan *Message)
+	db.rms = make(chan *Subscription)
 
 	db.minTTL = time.Duration(MIN_TTL)
 
@@ -94,7 +93,7 @@ func (db *Database) Serve() {
 }
 
 func (db *Database) Handle(message core.Message) {
-	db.rms <- message.Message().(*Message)
+	db.rms <- message.Message().(*Subscription)
 }
 
 func (db *Database) SetMessageChan(sms chan core.Message) {
@@ -118,8 +117,8 @@ func (db *Database) Poll() {
 			db.update()
 
 		case m := <-db.rms:
-			switch m.Code {
-			case AddFeed:
+			switch m.Op {
+			case Sub:
 				if feed, ok := db.Feeds[m.Url]; ok {
 					log.Errorf("Feed %s already exsits", feed.Title)
 					db.Send(core.Message{
@@ -137,7 +136,7 @@ func (db *Database) Poll() {
 					Type: "notify",
 					Msg:  fmt.Sprintf("订阅成功: %s", db.Feeds[m.Url].Title),
 				})
-			case DelFeed:
+			case UnSub:
 				if feed, ok := db.Feeds[m.Url]; ok {
 					delete(db.Feeds, m.Url)
 
@@ -152,14 +151,14 @@ func (db *Database) Poll() {
 					})
 				}
 
-			case GetFeed:
-				var feeds []string
+			case GetSub:
+				var feeds []*Feed
 				for _, f := range db.Feeds {
-					feeds = append(feeds, f.Title)
+					feeds = append(feeds, f)
 				}
 				db.Send(core.Message{
 					Type: "feeds",
-					Msg:  feeds,
+					Msg:  db.Feeds,
 				})
 			}
 		}
