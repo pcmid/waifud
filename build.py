@@ -51,13 +51,12 @@ def build_windows():
         run_cmd(cmd)
 
     elif sys.argv[1] == "package":
-        for arch in ["amd64", "arm64", "arm"]:
-            cmd = 'zip waifud_{goos}_{arch}.zip waifud_{goos}_{arch}.exe config.toml LICENSE'.format(
-                arch=arch,
-                goos=goos,
-            )
-            print(cmd)
-            run_cmd(cmd)
+        cmd = 'zip waifud_{goos}_{arch}.zip waifud_{goos}_{arch}.exe config.toml LICENSE'.format(
+            arch=arch,
+            goos=goos,
+        )
+        print(cmd)
+        run_cmd(cmd)
 
 
 def main():
