@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	_ "github.com/pcmid/waifud/services/client"
@@ -41,20 +42,29 @@ func init() {
 	log.SetFormatter(logFormatter)
 }
 
-var confFile = flag.StringP("config", "c", "config.toml", "config file")
-var help = flag.BoolP("help", "h", false, "print this help")
+//  go build -ldflags "-X main.version=version"
+var version = ""
+
+var cliConfFile = flag.StringP("config", "c", "config.toml", "config file")
+var cliHelp = flag.BoolP("help", "h", false, "print this help")
+var cliVersion = flag.BoolP("version", "v", false, "print waifud version")
 
 func main() {
 
 	flag.Parse()
 
-	if *help {
+	if *cliHelp {
 		flag.PrintDefaults()
 		return
 	}
 
+	if *cliVersion {
+		fmt.Printf("waidud %s\n", version)
+		return
+	}
+
 	viper.SetConfigType("toml")
-	viper.SetConfigFile(*confFile)
+	viper.SetConfigFile(*cliConfFile)
 	err := viper.ReadInConfig()
 
 	if err != nil {
