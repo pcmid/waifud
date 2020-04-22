@@ -31,11 +31,11 @@ CONFIG_PATH :
 
 ### telebot
 ```
-/ping
-/sub url
-/ubsub url
-/getsub
-/link url
+/ping  
+/sub url 	# 添加订阅
+/ubsub url	# 取消订阅
+/getsub		# 查看全部订阅
+/link url	# 直接下载链接
 ```
 
 效果如下
