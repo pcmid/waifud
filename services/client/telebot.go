@@ -112,7 +112,7 @@ func (t *TeleBot) Handle(message core.Message) {
 func (t *TeleBot) commandSub(m *tb.Message) {
 	url := m.Payload
 	if url == "" {
-		_, _ = t.bot.Send(m.Sender, "useage :/sub URL")
+		_, _ = t.bot.Send(m.Sender, "usage :/sub URL")
 		return
 	}
 	log.Trace(url)
@@ -131,7 +131,7 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 func (t *TeleBot) commandUnSub(m *tb.Message) {
 	url := m.Payload
 	if url == "" {
-		_, _ = t.bot.Send(m.Sender, "useage :/unsub URL")
+		_, _ = t.bot.Send(m.Sender, "usage :/unsub URL")
 		return
 	}
 	log.Trace(url)

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const MIN_TTL = 600
+const MinTtl = 600
 
 const (
 	Sub    int = 0x01
@@ -57,7 +57,7 @@ func (db *Database) Init() {
 	db.Feeds = make(map[string]*Feed)
 	db.rms = make(chan *Subscription)
 
-	db.minTTL = time.Duration(MIN_TTL)
+	db.minTTL = time.Duration(MinTtl)
 
 	if viper.IsSet("service.Database.min-ttl") {
 		db.minTTL = viper.GetDuration("service.Database.min-ttl")
@@ -120,7 +120,7 @@ func (db *Database) Poll() {
 			switch m.Op {
 			case Sub:
 				if feed, ok := db.Feeds[m.Url]; ok {
-					log.Errorf("Feed %s already exsits", feed.Title)
+					log.Errorf("Feed %s already existed", feed.Title)
 					db.Send(core.Message{
 						Type: "notify",
 						Msg:  fmt.Sprintf("订阅 %s 已经存在", db.Feeds[m.Url].Title),
