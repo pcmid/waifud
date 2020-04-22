@@ -65,10 +65,7 @@ func (t *TeleBot) Init() {
 	b.Handle("/sub", t.commandSub)
 	b.Handle("/unsub", t.commandUnSub)
 	b.Handle("/getsub", t.commandGetSub)
-
-	b.Handle("/a", func(m *tb.Message) {
-		fmt.Printf("%#v", m)
-	})
+	b.Handle("/link", t.commandLink)
 
 	t.bot = b
 }
@@ -159,6 +156,17 @@ func (t *TeleBot) commandGetSub(m *tb.Message) {
 			Op:  database.GetSub,
 			Url: "",
 		},
+	})
+}
+
+func (t *TeleBot) commandLink(m *tb.Message) {
+	t.chat = m.Chat
+
+	link := m.Payload
+
+	t.Send(core.Message{
+		Type: "enclosure",
+		Msg:  link,
 	})
 }
 
