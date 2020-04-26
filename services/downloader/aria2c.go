@@ -92,10 +92,17 @@ func (a *Aria2c) Serve() {
 							}
 						}
 					} else {
-						for _, file := range status.Files {
+						if status.InfoHash == "" {
+							for _, file := range status.Files {
+								a.Send(core.Message{
+									Type: "notify",
+									Msg:  file.Path[strings.LastIndex(file.Path, "/")+1:],
+								})
+							}
+						} else {
 							a.Send(core.Message{
 								Type: "notify",
-								Msg:  file.Path[strings.LastIndex(file.Path, "/")+1:],
+								Msg:  status.BitTorrent.Info.Name,
 							})
 						}
 					}
