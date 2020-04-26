@@ -85,11 +85,11 @@ func (t *TeleBot) Handle(message core.Message) {
 
 	switch message.Type {
 	case "notify":
-		_, _ = t.bot.Send(t.chat, message.Message().(string))
+		go t.Notify(message.Message().(string), false)
 	case "feeds":
 		feeds := message.Message().(map[string]*database.Feed)
 		if len(feeds) == 0 {
-			_, _ = t.bot.Send(t.chat, "未找到订阅!")
+			go t.Notify("未找到订阅", false)
 			return
 		}
 
@@ -99,13 +99,38 @@ func (t *TeleBot) Handle(message core.Message) {
 		for _, feed := range feeds {
 			resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
 		}
-		_, _ = t.bot.Send(t.chat, resp.String(), &tb.SendOptions{
-			ReplyTo:               nil,
-			ReplyMarkup:           nil,
-			DisableWebPagePreview: true,
-			DisableNotification:   false,
-			ParseMode:             tb.ModeMarkdown,
-		})
+
+		go t.Notify(resp.String(), true)
+	}
+}
+
+func (t *TeleBot) Notify(m string, isMarkDown bool) {
+	retryTimes := 10
+	tc := time.Tick(30 * time.Second)
+
+	opt := &tb.SendOptions{
+		ReplyTo:               nil,
+		ReplyMarkup:           nil,
+		DisableWebPagePreview: true,
+		DisableNotification:   false,
+		ParseMode:             "",
+	}
+
+	if isMarkDown {
+		opt.ParseMode = tb.ModeMarkdown
+	}
+
+	for {
+		if retryTimes == 0 {
+			return
+		}
+		if _, e := t.bot.Send(t.chat, m, opt); e == nil {
+			return
+		} else {
+			log.Errorf("Failed to send message: %s, retrying...", e)
+			retryTimes--
+		}
+		<-tc
 	}
 }
 
