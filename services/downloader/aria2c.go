@@ -2,11 +2,13 @@ package downloader
 
 import (
 	"context"
+	"fmt"
 	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/zyxar/argo/rpc"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,7 +27,11 @@ type Aria2c struct {
 }
 
 type Mission struct {
-	Gid string
+	Gid          string
+	Name         string
+	Status       string
+	ProgressRate float64
+	FollowedBy   []string
 }
 
 func (a *Aria2c) Name() string {
@@ -35,6 +41,7 @@ func (a *Aria2c) Name() string {
 func (a *Aria2c) ListeningTypes() []string {
 	return []string{
 		"enclosure",
+		"api",
 	}
 }
 
@@ -72,55 +79,65 @@ func (a *Aria2c) Send(message core.Message) {
 }
 
 func (a *Aria2c) Serve() {
-	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 	tick := time.NewTicker(2 * time.Second)
 
 	for {
 		select {
 		case <-tick.C:
-			for gid, url := range a.missions {
-				status, _ := rpcc.TellStatus(gid)
+			a.UpdateStatus()
 
-				if status.Status == "complete" {
-					log.Infof("%s download complete %s", a.Name(), url)
-
-					if followed := status.FollowedBy; followed != nil {
-
+			for gid, m := range a.missions {
+				switch m.Status {
+				case "complete":
+					log.Infof("%s download completed", m.Name)
+					if followed := m.FollowedBy; followed != nil {
 						for _, g := range followed {
 							a.missions[g] = &Mission{
 								Gid: g,
 							}
 						}
 					} else {
-						if status.InfoHash == "" {
-							for _, file := range status.Files {
-								a.Send(core.Message{
-									Type: "notify",
-									Msg:  file.Path[strings.LastIndex(file.Path, "/")+1:],
-								})
-							}
-						} else {
-							a.Send(core.Message{
-								Type: "notify",
-								Msg:  status.BitTorrent.Info.Name,
-							})
-						}
+						a.Send(core.Message{
+							Type: "notify",
+							Msg:  m.Name,
+						})
 					}
 					delete(a.missions, gid)
+
+				case "error":
+					a.Send(core.Message{
+						Type: "notify",
+						Msg:  fmt.Sprintf("%s 下载失败", m.Name),
+					})
+					delete(a.missions, gid)
+
+				case "removed":
+					delete(a.missions, gid)
 				}
-
 			}
-
 		case mission := <-a.rms:
 			a.missions[mission.Gid] = mission
 		}
 	}
-
 }
 
 func (a *Aria2c) Handle(message core.Message) {
-	url := message.Message().(string)
-	a.Download(url)
+
+	switch message.Type {
+	case "api":
+		method := message.Message().(string)
+		switch method {
+		case "status":
+			//a.UpdateStatus()
+			a.Send(core.Message{
+				Type: "status",
+				Msg:  a.missions,
+			})
+		}
+	case "enclosure":
+		url := message.Message().(string)
+		a.Download(url)
+	}
 }
 
 func (a *Aria2c) Download(url string) {
@@ -147,5 +164,32 @@ func (a *Aria2c) Download(url string) {
 
 	a.rms <- &Mission{
 		Gid: gid,
+	}
+}
+
+func (a *Aria2c) UpdateStatus() {
+	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
+
+	for gid, mission := range a.missions {
+		s, _ := rpcc.TellStatus(gid)
+		mission.Status = s.Status
+		mission.FollowedBy = s.FollowedBy
+		if s.InfoHash == "" {
+			uris, _ := rpcc.GetURIs(gid)
+			if len(uris) > 0 {
+				mission.Name = uris[0].URI[strings.LastIndex(uris[0].URI, "/")+1:]
+			}
+		} else {
+			mission.Name = s.BitTorrent.Info.Name
+		}
+
+		completedLength, _ := strconv.ParseFloat(s.CompletedLength, 10)
+		totalLength, _ := strconv.ParseFloat(s.TotalLength, 10)
+
+		if s.TotalLength == "0" {
+			mission.ProgressRate = 0
+			return
+		}
+		mission.ProgressRate = completedLength / totalLength
 	}
 }

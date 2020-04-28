@@ -5,6 +5,7 @@ import (
 	"github.com/pcmid/waifud/core"
 	"github.com/pcmid/waifud/services"
 	"github.com/pcmid/waifud/services/database"
+	"github.com/pcmid/waifud/services/downloader"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -34,6 +35,7 @@ func (t *TeleBot) ListeningTypes() []string {
 	return []string{
 		"feeds",
 		"notify",
+		"status",
 	}
 }
 
@@ -66,6 +68,7 @@ func (t *TeleBot) Init() {
 	b.Handle("/unsub", t.commandUnSub)
 	b.Handle("/getsub", t.commandGetSub)
 	b.Handle("/link", t.commandLink)
+	b.Handle("/status", t.commandStatus)
 
 	t.bot = b
 }
@@ -101,6 +104,22 @@ func (t *TeleBot) Handle(message core.Message) {
 		}
 
 		go t.Notify(resp.String(), true)
+
+	case "status":
+		statues := message.Message().(map[string]*downloader.Mission)
+		if len(statues) == 0 {
+			go t.Notify("未找到下载项目", false)
+			return
+		}
+
+		resp := strings.Builder{}
+		resp.WriteString("正在下载:\n")
+
+		for _, status := range statues {
+			resp.WriteString(fmt.Sprintf("名称: %s\n\t状态: %s\n\t进度: %.2f%%\n", status.Name, status.Status, status.ProgressRate*100))
+		}
+
+		go t.Notify(resp.String(), false)
 	}
 }
 
@@ -192,6 +211,15 @@ func (t *TeleBot) commandLink(m *tb.Message) {
 	t.Send(core.Message{
 		Type: "enclosure",
 		Msg:  link,
+	})
+}
+
+func (t *TeleBot) commandStatus(m *tb.Message) {
+	t.chat = m.Sender
+
+	t.Send(core.Message{
+		Type: "api",
+		Msg:  "status",
 	})
 }
 
