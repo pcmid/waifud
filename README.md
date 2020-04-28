@@ -36,6 +36,7 @@ CONFIG_PATH :
 /ubsub url	# 取消订阅
 /getsub		# 查看全部订阅
 /link url	# 直接下载链接
+/status     # 查看下载项与状态
 ```
 
 效果如下
