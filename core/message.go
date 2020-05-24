@@ -2,9 +2,19 @@ package core
 
 type Message struct {
 	Type string
-	Msg  interface{}
+	Content string
+
+	Extra map[string]interface{}
 }
 
-func (m *Message) Message() interface{} {
-	return m.Msg
+func (m *Message) Get(e string) interface{} {
+	return m.Extra[e]
+}
+
+func (m *Message)Set(e string, v interface{})  {
+	if m.Extra == nil {
+		m.Extra = make(map[string]interface{})
+	}
+
+	m.Extra[e] = v
 }

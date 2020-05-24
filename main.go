@@ -3,10 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/pcmid/waifud/core"
-	"github.com/pcmid/waifud/services"
-	_ "github.com/pcmid/waifud/services/client"
-	_ "github.com/pcmid/waifud/services/database"
-	_ "github.com/pcmid/waifud/services/downloader"
+	_ "github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -45,7 +42,7 @@ func init() {
 //  go build -ldflags "-X main.version=version"
 var version = ""
 
-var cliConfFile = flag.StringP("config", "c", "config.toml", "config file")
+var cliConfFile = flag.StringP("config", "c", "config.yaml", "config file")
 var cliHelp = flag.BoolP("help", "h", false, "print this help")
 var cliVersion = flag.BoolP("version", "v", false, "print waifud version")
 
@@ -63,7 +60,7 @@ func main() {
 		return
 	}
 
-	viper.SetConfigType("toml")
+	viper.SetConfigType("yaml")
 	viper.SetConfigFile(*cliConfFile)
 	err := viper.ReadInConfig()
 
@@ -71,12 +68,12 @@ func main() {
 		log.Fatalf("Fatal error config file: %s", err)
 	}
 
-	c := &core.Controller{}
+	c := &core.Scheduler{}
 
-	for serviceName := range viper.GetStringMapStringSlice("service") {
-		c.Register(services.Get(serviceName))
-		log.Tracef("Registered %s", serviceName)
+	for service := range viper.GetStringMapStringSlice("service") {
+		c.Init(service)
+		log.Tracef("Init %s", service)
 	}
 
-	c.Poll()
+	c.Loop()
 }

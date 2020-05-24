@@ -1,10 +1,9 @@
-package downloader
+package services
 
 import (
 	"context"
 	"fmt"
 	"github.com/pcmid/waifud/core"
-	"github.com/pcmid/waifud/services"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/zyxar/argo/rpc"
@@ -14,16 +13,17 @@ import (
 )
 
 func init() {
-	services.ServiceMap["aria2c"] = &Aria2c{}
+	core.Register(&Aria2c{})
 }
 
 type Aria2c struct {
 	rpcUrl    string
 	rpcSecret string
 
-	missions map[string]*Mission
-	sms      chan core.Message
-	rms      chan *Mission
+	missions    map[string]*Mission
+	newMissions chan *Mission
+
+	sms chan *core.Message
 }
 
 type Mission struct {
@@ -40,8 +40,8 @@ func (a *Aria2c) Name() string {
 
 func (a *Aria2c) ListeningTypes() []string {
 	return []string{
-		"enclosure",
-		"api",
+		"item",
+		"aria2c_api",
 	}
 }
 
@@ -52,7 +52,7 @@ func (a *Aria2c) Init() {
 
 	a.missions = make(map[string]*Mission)
 
-	a.rms = make(chan *Mission)
+	a.newMissions = make(chan *Mission)
 
 	if viper.IsSet("service.aria2c.url") {
 		a.rpcUrl = viper.GetString("service.aria2c.url")
@@ -64,17 +64,16 @@ func (a *Aria2c) Init() {
 	if viper.IsSet("service.aria2c.secret") {
 		a.rpcSecret = viper.GetString("service.aria2c.secret")
 		log.Tracef("set aria2c rpc secret %s", a.rpcSecret)
-
 	} else {
 		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
 	}
 }
 
-func (a *Aria2c) SetMessageChan(ms chan core.Message) {
+func (a *Aria2c) SetMessageChan(ms chan *core.Message) {
 	a.sms = ms
 }
 
-func (a *Aria2c) Send(message core.Message) {
+func (a *Aria2c) Send(message *core.Message) {
 	a.sms <- message
 }
 
@@ -97,17 +96,17 @@ func (a *Aria2c) Serve() {
 							}
 						}
 					} else {
-						a.Send(core.Message{
-							Type: "notify",
-							Msg:  m.Name,
+						a.Send(&core.Message{
+							Type:    "notify",
+							Content: fmt.Sprintf("%s 下载完成", m.Name),
 						})
 					}
 					delete(a.missions, gid)
 
 				case "error":
-					a.Send(core.Message{
-						Type: "notify",
-						Msg:  fmt.Sprintf("%s 下载失败", m.Name),
+					a.Send(&core.Message{
+						Type:    "notify",
+						Content: fmt.Sprintf("%s 下载失败", m.Name),
 					})
 					delete(a.missions, gid)
 
@@ -115,27 +114,29 @@ func (a *Aria2c) Serve() {
 					delete(a.missions, gid)
 				}
 			}
-		case mission := <-a.rms:
+		case mission := <-a.newMissions:
 			a.missions[mission.Gid] = mission
 		}
 	}
 }
 
-func (a *Aria2c) Handle(message core.Message) {
+func (a *Aria2c) Handle(message *core.Message) {
 
 	switch message.Type {
-	case "api":
-		method := message.Message().(string)
+	case "aria2c_api":
+		method := message.Content
 		switch method {
 		case "status":
-			//a.UpdateStatus()
-			a.Send(core.Message{
+
+			m := &core.Message{
 				Type: "status",
-				Msg:  a.missions,
-			})
+			}
+			m.Set("missions", a.missions)
+
+			a.Send(m)
 		}
-	case "enclosure":
-		url := message.Message().(string)
+	case "item":
+		url := message.Content
 		a.Download(url)
 	}
 }
@@ -150,6 +151,10 @@ func (a *Aria2c) Download(url string) {
 
 	if err != nil {
 		log.Errorf("%s Failed to connect aria2 rpc server: %s", a.Name(), err)
+		a.Send(&core.Message{
+			Type:    "notify",
+			Content: "添加下载失败",
+		})
 		return
 	}
 
@@ -157,12 +162,16 @@ func (a *Aria2c) Download(url string) {
 
 	if err != nil {
 		log.Errorf("%s Failed to AddURL for aria2c: %s", a.Name(), err)
+		a.Send(&core.Message{
+			Type:    "notify",
+			Content: "添加下载失败",
+		})
 		return
 	}
 
 	//log.Trace(Gid)
 
-	a.rms <- &Mission{
+	a.newMissions <- &Mission{
 		Gid: gid,
 	}
 }

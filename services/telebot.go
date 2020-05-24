@@ -1,11 +1,8 @@
-package client
+package services
 
 import (
 	"fmt"
 	"github.com/pcmid/waifud/core"
-	"github.com/pcmid/waifud/services"
-	"github.com/pcmid/waifud/services/database"
-	"github.com/pcmid/waifud/services/downloader"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -15,14 +12,14 @@ import (
 )
 
 func init() {
-	services.ServiceMap["telebot"] = &TeleBot{}
+	core.Register(&TeleBot{})
 }
 
 type TeleBot struct {
 	bot *tb.Bot
 
-	rms chan core.Message
-	sms chan core.Message
+	rms chan *core.Message
+	sms chan *core.Message
 
 	chat tb.Recipient
 }
@@ -40,7 +37,7 @@ func (t *TeleBot) ListeningTypes() []string {
 }
 
 func (t *TeleBot) Init() {
-	token := viper.GetString("service.TeleBot.token")
+	token := viper.GetString("service.teleBot.token")
 
 	if token == "" {
 		log.Error("TeleBot token not found, exit")
@@ -50,7 +47,6 @@ func (t *TeleBot) Init() {
 	log.Tracef("set telebot token %s", token)
 
 	b, err := tb.NewBot(tb.Settings{
-		// the token just for test
 		Token:  token,
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
 	})
@@ -81,18 +77,18 @@ func (t *TeleBot) Serve() {
 	t.bot.Start()
 }
 
-func (t *TeleBot) Handle(message core.Message) {
+func (t *TeleBot) Handle(message *core.Message) {
 	if t.chat == nil {
 		return
 	}
 
 	switch message.Type {
 	case "notify":
-		go t.Notify(message.Message().(string), false)
+		go t.notify(message.Content, false)
 	case "feeds":
-		feeds := message.Message().(map[string]*database.Feed)
+		feeds := message.Get("feeds").(map[string]*Feed)
 		if len(feeds) == 0 {
-			go t.Notify("未找到订阅", false)
+			go t.notify("未找到订阅", false)
 			return
 		}
 
@@ -103,12 +99,12 @@ func (t *TeleBot) Handle(message core.Message) {
 			resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
 		}
 
-		go t.Notify(resp.String(), true)
+		go t.notify(resp.String(), true)
 
 	case "status":
-		statues := message.Message().(map[string]*downloader.Mission)
+		statues := message.Get("missions").(map[string]*Mission)
 		if len(statues) == 0 {
-			go t.Notify("未找到下载项目", false)
+			go t.notify("未找到下载项目", false)
 			return
 		}
 
@@ -119,11 +115,11 @@ func (t *TeleBot) Handle(message core.Message) {
 			resp.WriteString(fmt.Sprintf("名称: %s\n\t状态: %s\n\t进度: %.2f%%\n", status.Name, status.Status, status.ProgressRate*100))
 		}
 
-		go t.Notify(resp.String(), false)
+		go t.notify(resp.String(), false)
 	}
 }
 
-func (t *TeleBot) Notify(m string, isMarkDown bool) {
+func (t *TeleBot) notify(m string, isMarkDown bool) {
 	retryTimes := 10
 	tc := time.Tick(30 * time.Second)
 
@@ -163,13 +159,14 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 
 	t.chat = m.Sender
 
-	t.Send(core.Message{
-		Type: "subscription",
-		Msg: &database.Subscription{
-			Op:  database.Sub,
-			Url: url,
-		},
-	})
+	msg := &core.Message{
+		Type:    "subscription",
+		Content: url,
+	}
+
+	msg.Set("operation", Sub)
+
+	t.Send(msg)
 }
 
 func (t *TeleBot) commandUnSub(m *tb.Message) {
@@ -180,27 +177,26 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 	}
 	log.Trace(url)
 
-	t.chat = m.Sender
+	msg := &core.Message{
+		Type:    "subscription",
+		Content: url,
+	}
 
-	t.Send(core.Message{
-		Type: "subscription",
-		Msg: &database.Subscription{
-			Op:  database.UnSub,
-			Url: url,
-		},
-	})
+	msg.Set("operation", UnSub)
+
+	t.Send(msg)
 }
 
 func (t *TeleBot) commandGetSub(m *tb.Message) {
 	t.chat = m.Sender
 
-	t.Send(core.Message{
+	msg := &core.Message{
 		Type: "subscription",
-		Msg: &database.Subscription{
-			Op:  database.GetSub,
-			Url: "",
-		},
-	})
+	}
+
+	msg.Set("operation", GetSub)
+
+	t.Send(msg)
 }
 
 func (t *TeleBot) commandLink(m *tb.Message) {
@@ -208,18 +204,18 @@ func (t *TeleBot) commandLink(m *tb.Message) {
 
 	link := m.Payload
 
-	t.Send(core.Message{
-		Type: "enclosure",
-		Msg:  link,
+	t.Send(&core.Message{
+		Type:    "item",
+		Content: link,
 	})
 }
 
 func (t *TeleBot) commandStatus(m *tb.Message) {
 	t.chat = m.Sender
 
-	t.Send(core.Message{
-		Type: "api",
-		Msg:  "status",
+	t.Send(&core.Message{
+		Type:    "aria2c_api",
+		Content: "status",
 	})
 }
 
@@ -239,10 +235,10 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	}
 }
 
-func (t *TeleBot) SetMessageChan(ms chan core.Message) {
+func (t *TeleBot) SetMessageChan(ms chan *core.Message) {
 	t.sms = ms
 }
 
-func (t *TeleBot) Send(message core.Message) {
+func (t *TeleBot) Send(message *core.Message) {
 	t.sms <- message
 }

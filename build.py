@@ -29,7 +29,7 @@ def build_linux():
 
     elif sys.argv[1] == "package":
         for arch in ["amd64", "arm64", "arm"]:
-            cmd = 'tar -zcvf waifud_{goos}_{arch}.tar.gz waifud_{goos}_{arch} config.toml waifud.service LICENSE'.format(
+            cmd = 'tar -zcvf waifud_{goos}_{arch}.tar.gz waifud_{goos}_{arch} config.yaml waifud.service LICENSE'.format(
                 arch=arch,
                 goos=goos,
             )
@@ -51,7 +51,7 @@ def build_windows():
         run_cmd(cmd)
 
     elif sys.argv[1] == "package":
-        cmd = 'zip waifud_{goos}_{arch}.zip waifud_{goos}_{arch}.exe config.toml LICENSE'.format(
+        cmd = 'zip waifud_{goos}_{arch}.zip waifud_{goos}_{arch}.exe config.yaml LICENSE'.format(
             arch=arch,
             goos=goos,
         )

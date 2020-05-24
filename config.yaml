@@ -1,0 +1,11 @@
+service:
+  puller:
+    saved-path: "waifud.gob"
+    min-ttl: 600
+
+  telebot:
+    token: ""
+
+  aria2c:
+    url: "http://127.0.0.1:6800/jsonrpc"
+    secret: ""
