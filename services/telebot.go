@@ -185,6 +185,9 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 	}
 	log.Trace(url)
 
+	t.chat = m.Sender
+
+
 	msg := core.NewMessage("subscription").
 		Set("content", url).
 		Set("operation", UnSub)

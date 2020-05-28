@@ -93,17 +93,14 @@ func (a *Aria2c) Serve() {
 				switch m.Status {
 				case "complete":
 					log.Infof("%s download completed", m.Name)
+					a.Send(
+						core.NewMessage("notify").
+							Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
+					)
 					if followed := m.FollowedBy; followed != nil {
 						for _, g := range followed {
-							a.missions[g] = &Mission{
-								Gid: g,
-							}
+							go a.addMission(g)
 						}
-					} else {
-						a.Send(
-							core.NewMessage("notify").
-								Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
-						)
 					}
 					delete(a.missions, gid)
 
@@ -174,9 +171,7 @@ func (a *Aria2c) Download(url, dir string) {
 		return
 	}
 
-	a.newMissions <- &Mission{
-		Gid: gid,
-	}
+	a.addMission(gid)
 }
 
 func (a *Aria2c) UpdateStatus() {
@@ -187,12 +182,14 @@ func (a *Aria2c) UpdateStatus() {
 		mission.Status = s.Status
 		mission.FollowedBy = s.FollowedBy
 		if s.InfoHash == "" {
-			uris, _ := rpcc.GetURIs(gid)
-			if len(uris) > 0 {
-				mission.Name = uris[0].URI[strings.LastIndex(uris[0].URI, "/")+1:]
-			}
-		} else {
+			// file from url
+			mission.Name = s.Files[0].Path[strings.LastIndex(s.Files[0].Path, "/")+1:]
+		} else if s.BitTorrent.Info.Name != "" {
+			// files from torrent
 			mission.Name = s.BitTorrent.Info.Name
+		} else {
+			// file from metalink
+			mission.Name = s.Files[0].Path
 		}
 
 		completedLength, _ := strconv.ParseFloat(s.CompletedLength, 10)
@@ -219,4 +216,10 @@ func (a *Aria2c) getGlobalDir() {
 	log.Trace(m)
 
 	a.globalDir = m["dir"].(string)
+}
+
+func (a *Aria2c) addMission(gid string) {
+	a.newMissions <- &Mission{
+		Gid: gid,
+	}
 }
