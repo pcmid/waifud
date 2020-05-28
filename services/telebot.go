@@ -18,8 +18,8 @@ func init() {
 type TeleBot struct {
 	bot *tb.Bot
 
-	rms chan *core.Message
-	sms chan *core.Message
+	rms chan core.Message
+	sms chan core.Message
 
 	chat tb.Recipient
 }
@@ -77,14 +77,14 @@ func (t *TeleBot) Serve() {
 	t.bot.Start()
 }
 
-func (t *TeleBot) Handle(message *core.Message) {
+func (t *TeleBot) Handle(message core.Message) {
 	if t.chat == nil {
 		return
 	}
 
-	switch message.Type {
+	switch message.Type() {
 	case "notify":
-		go t.notify(message.Content, false)
+		go t.notify(message.Get("content").(string), false)
 	case "feeds":
 		feeds := message.Get("feeds").(map[string]*Feed)
 		if len(feeds) == 0 {
@@ -150,23 +150,31 @@ func (t *TeleBot) notify(m string, isMarkDown bool) {
 }
 
 func (t *TeleBot) commandSub(m *tb.Message) {
-	url := m.Payload
-	if url == "" {
-		_, _ = t.bot.Send(m.Sender, "usage :/sub URL")
+	payload := m.Payload
+	if payload == "" {
+		_, _ = t.bot.Send(m.Sender, "usage :/sub URL [dir]")
 		return
 	}
-	log.Trace(url)
+	log.Trace(payload)
+
+	contents := strings.Split(payload, " ")
+
+	var url string
+	var dir string
+
+	url = contents[0]
+	if len(contents) > 1 {
+		dir = contents[1]
+	}
 
 	t.chat = m.Sender
 
-	msg := &core.Message{
-		Type:    "subscription",
-		Content: url,
-	}
-
-	msg.Set("operation", Sub)
-
-	t.Send(msg)
+	t.Send(
+		core.NewMessage("subscription").
+			Set("content", url).
+			Set("operation", Sub).
+			Set("dir", dir),
+	)
 }
 
 func (t *TeleBot) commandUnSub(m *tb.Message) {
@@ -177,12 +185,9 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 	}
 	log.Trace(url)
 
-	msg := &core.Message{
-		Type:    "subscription",
-		Content: url,
-	}
-
-	msg.Set("operation", UnSub)
+	msg := core.NewMessage("subscription").
+		Set("content", url).
+		Set("operation", UnSub)
 
 	t.Send(msg)
 }
@@ -190,11 +195,8 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 func (t *TeleBot) commandGetSub(m *tb.Message) {
 	t.chat = m.Sender
 
-	msg := &core.Message{
-		Type: "subscription",
-	}
-
-	msg.Set("operation", GetSub)
+	msg := core.NewMessage("subscription").
+		Set("operation", GetSub)
 
 	t.Send(msg)
 }
@@ -202,21 +204,32 @@ func (t *TeleBot) commandGetSub(m *tb.Message) {
 func (t *TeleBot) commandLink(m *tb.Message) {
 	t.chat = m.Sender
 
-	link := m.Payload
+	payload := m.Payload
+	log.Trace(payload)
 
-	t.Send(&core.Message{
-		Type:    "item",
-		Content: link,
-	})
+	contents := strings.Split(payload, " ")
+
+	var url string
+	var dir string
+
+	url = contents[0]
+	if len(contents) > 1 {
+		dir = contents[1]
+	}
+
+	msg := core.NewMessage("item").
+		Set("content", url).
+		Set("dir", dir)
+
+	t.Send(msg)
 }
 
 func (t *TeleBot) commandStatus(m *tb.Message) {
 	t.chat = m.Sender
 
-	t.Send(&core.Message{
-		Type:    "aria2c_api",
-		Content: "status",
-	})
+	t.Send(core.NewMessage("aria2c_api").
+		Set("content", "status"),
+	)
 }
 
 func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
@@ -235,10 +248,10 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	}
 }
 
-func (t *TeleBot) SetMessageChan(ms chan *core.Message) {
+func (t *TeleBot) SetMessageChan(ms chan core.Message) {
 	t.sms = ms
 }
 
-func (t *TeleBot) Send(message *core.Message) {
+func (t *TeleBot) Send(message core.Message) {
 	t.sms <- message
 }

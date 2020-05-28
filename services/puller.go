@@ -30,8 +30,8 @@ type Puller struct {
 
 	feeds map[string]*Feed
 
-	rms chan *core.Message
-	sms chan *core.Message
+	rms chan core.Message
+	sms chan core.Message
 }
 
 type Feed struct {
@@ -39,6 +39,8 @@ type Feed struct {
 
 	URL        string
 	FiledCount int
+
+	dir string
 }
 
 func (p *Puller) Name() string {
@@ -53,7 +55,7 @@ func (p *Puller) ListeningTypes() []string {
 
 func (p *Puller) Init() {
 	p.feeds = make(map[string]*Feed)
-	p.rms = make(chan *core.Message)
+	p.rms = make(chan core.Message)
 
 	p.minTTL = time.Duration(MinTtl)
 
@@ -86,15 +88,15 @@ func (p *Puller) Serve() {
 	p.serve()
 }
 
-func (p *Puller) Handle(message *core.Message) {
+func (p *Puller) Handle(message core.Message) {
 	p.rms <- message
 }
 
-func (p *Puller) SetMessageChan(sms chan *core.Message) {
+func (p *Puller) SetMessageChan(sms chan core.Message) {
 	p.sms = sms
 }
 
-func (p *Puller) Send(message *core.Message) {
+func (p *Puller) Send(message core.Message) {
 	if p.sms == nil {
 		return
 	}
@@ -111,38 +113,42 @@ func (p *Puller) serve() {
 			p.update()
 
 		case m := <-p.rms:
-			_url := m.Content
+			_url := m.Get("content").(string)
 
 			switch m.Get("operation").(int) {
 			case Sub:
 				if feed, ok := p.feeds[_url]; ok {
 					log.Errorf("Feed %s already existed", feed.Title)
-					p.Send(&core.Message{
-						Type:    "notify",
-						Content: fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Title),
-					})
+					p.Send(
+						core.NewMessage("notify").
+							Set("content", fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Title)),
+					)
+
 					continue
 				}
 
 				var title string
 				if feed, err := gofeed.NewParser().ParseURL(_url); err != nil {
 					log.Warnf("Failed to add feed: %s", err)
-					p.Send(&core.Message{
-						Type:    "notify",
-						Content: "订阅失败",
-					})
+					p.Send(
+						core.NewMessage("notify").
+							Set("content", "订阅失败"),
+					)
 					continue
 				} else {
 					title = feed.Title
 				}
 
-				p.feeds[_url] = &Feed{}
+				p.feeds[_url] = &Feed{
+					URL: _url,
+					dir: m.Get("dir").(string),
+				}
 				log.Infof("Add subscribe %s successfully", _url)
 
-				p.Send(&core.Message{
-					Type:    "notify",
-					Content: fmt.Sprintf("订阅成功: %s", title),
-				})
+				p.Send(
+					core.NewMessage("notify").
+						Set("content", fmt.Sprintf("订阅成功: %s", title)),
+				)
 
 				p.update()
 
@@ -150,15 +156,16 @@ func (p *Puller) serve() {
 				if feed, ok := p.feeds[_url]; ok {
 					delete(p.feeds, _url)
 
-					p.Send(&core.Message{
-						Type:    "notify",
-						Content: fmt.Sprintf("成功取消订阅: %s", feed.Title),
-					})
+					p.Send(
+						core.NewMessage("notify").
+							Set("content", fmt.Sprintf("成功取消订阅: %s", feed.Title)),
+					)
+
 				} else {
-					p.Send(&core.Message{
-						Type:    "notify",
-						Content: "订阅不存在！",
-					})
+					p.Send(
+						core.NewMessage("notify").
+							Set("content", "订阅不存在！"),
+					)
 				}
 
 			case GetSub:
@@ -167,13 +174,8 @@ func (p *Puller) serve() {
 					feeds = append(feeds, feed)
 				}
 
-				m := &core.Message{
-					Type:    "feeds",
-					Content: "",
-					Extra:   nil,
-				}
-
-				m.Set("feeds", feeds)
+				m := core.NewMessage("feeds").
+					Set("feeds", feeds)
 
 				p.Send(m)
 			}
@@ -267,10 +269,11 @@ func (p *Puller) update() {
 				q := u.Query()
 				u.RawQuery = q.Encode()
 
-				p.Send(&core.Message{
-					Type:    "item",
-					Content: u.String(),
-				})
+				p.Send(
+					core.NewMessage("item").
+						Set("content", u.String()).
+						Set("dir", feed.dir),
+				)
 			}
 		}
 	}

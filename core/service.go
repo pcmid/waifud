@@ -11,12 +11,12 @@ func Register(s Service) {
 }
 
 type Receiver interface {
-	Handle(message *Message)
+	Handle(message Message)
 }
 
 type Sender interface {
-	SetMessageChan(chan *Message)
-	Send(message *Message)
+	SetMessageChan(chan Message)
+	Send(message Message)
 }
 
 type Service interface {

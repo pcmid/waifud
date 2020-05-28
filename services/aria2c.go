@@ -23,7 +23,9 @@ type Aria2c struct {
 	missions    map[string]*Mission
 	newMissions chan *Mission
 
-	sms chan *core.Message
+	sms chan core.Message
+
+	globalDir string
 }
 
 type Mission struct {
@@ -67,13 +69,15 @@ func (a *Aria2c) Init() {
 	} else {
 		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
 	}
+
+	a.getGlobalDir()
 }
 
-func (a *Aria2c) SetMessageChan(ms chan *core.Message) {
+func (a *Aria2c) SetMessageChan(ms chan core.Message) {
 	a.sms = ms
 }
 
-func (a *Aria2c) Send(message *core.Message) {
+func (a *Aria2c) Send(message core.Message) {
 	a.sms <- message
 }
 
@@ -96,18 +100,18 @@ func (a *Aria2c) Serve() {
 							}
 						}
 					} else {
-						a.Send(&core.Message{
-							Type:    "notify",
-							Content: fmt.Sprintf("%s 下载完成", m.Name),
-						})
+						a.Send(
+							core.NewMessage("notify").
+								Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
+						)
 					}
 					delete(a.missions, gid)
 
 				case "error":
-					a.Send(&core.Message{
-						Type:    "notify",
-						Content: fmt.Sprintf("%s 下载失败", m.Name),
-					})
+					a.Send(
+						core.NewMessage("notify").
+							Set("content", fmt.Sprintf("%s 下载失败", m.Name)),
+					)
 					delete(a.missions, gid)
 
 				case "removed":
@@ -120,28 +124,27 @@ func (a *Aria2c) Serve() {
 	}
 }
 
-func (a *Aria2c) Handle(message *core.Message) {
+func (a *Aria2c) Handle(message core.Message) {
 
-	switch message.Type {
+	switch message.Type() {
 	case "aria2c_api":
-		method := message.Content
+		method := message.Get("content")
 		switch method {
 		case "status":
 
-			m := &core.Message{
-				Type: "status",
-			}
-			m.Set("missions", a.missions)
+			m := core.NewMessage("status").
+				Set("missions", a.missions)
 
 			a.Send(m)
 		}
 	case "item":
-		url := message.Content
-		a.Download(url)
+		url := message.Get("content").(string)
+		dir := message.Get("dir").(string)
+		a.Download(url, dir)
 	}
 }
 
-func (a *Aria2c) Download(url string) {
+func (a *Aria2c) Download(url, dir string) {
 	log.Infof("%s Download %s", a.Name(), url)
 
 	rpcc, err := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
@@ -151,25 +154,25 @@ func (a *Aria2c) Download(url string) {
 
 	if err != nil {
 		log.Errorf("%s Failed to connect aria2 rpc server: %s", a.Name(), err)
-		a.Send(&core.Message{
-			Type:    "notify",
-			Content: "添加下载失败",
-		})
+		a.Send(
+			core.NewMessage("notify").
+				Set("content", "添加下载失败"),
+		)
 		return
 	}
 
-	gid, err := rpcc.AddURI(url, rpc.Option{})
+	gid, err := rpcc.AddURI(url, rpc.Option{
+		"dir": a.globalDir + "/" + dir,
+	})
 
 	if err != nil {
 		log.Errorf("%s Failed to AddURL for aria2c: %s", a.Name(), err)
-		a.Send(&core.Message{
-			Type:    "notify",
-			Content: "添加下载失败",
-		})
+		a.Send(
+			core.NewMessage("notify").
+				Set("content", "添加下载失败"),
+		)
 		return
 	}
-
-	//log.Trace(Gid)
 
 	a.newMissions <- &Mission{
 		Gid: gid,
@@ -201,4 +204,19 @@ func (a *Aria2c) UpdateStatus() {
 		}
 		mission.ProgressRate = completedLength / totalLength
 	}
+}
+
+func (a *Aria2c) getGlobalDir() {
+	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
+
+	m, err := rpcc.GetGlobalOption()
+
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	log.Trace(m)
+
+	a.globalDir = m["dir"].(string)
 }

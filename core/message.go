@@ -1,20 +1,25 @@
 package core
 
-type Message struct {
-	Type string
-	Content string
+type Message map[string]interface{}
 
-	Extra map[string]interface{}
+func NewMessage(t string) Message {
+	m := make(map[string]interface{})
+	m["type"] = t
+	return m
 }
 
-func (m *Message) Get(e string) interface{} {
-	return m.Extra[e]
+func (m Message) Type() string {
+	return m["type"].(string)
 }
 
-func (m *Message)Set(e string, v interface{})  {
-	if m.Extra == nil {
-		m.Extra = make(map[string]interface{})
+func (m Message) Get(e string) interface{} {
+	if v, ok := m[e]; ok {
+		return v
 	}
+	return nil
+}
 
-	m.Extra[e] = v
+func (m Message) Set(e string, v interface{}) Message {
+	m[e] = v
+	return m
 }

@@ -5,7 +5,7 @@ import (
 )
 
 type Scheduler struct {
-	messages chan *Message
+	messages chan Message
 	services map[string][]Service
 }
 
@@ -23,7 +23,7 @@ func (s *Scheduler) Init(serviceName string) {
 	}
 
 	if s.messages == nil {
-		s.messages = make(chan *Message)
+		s.messages = make(chan Message)
 	}
 
 	for _, t := range service.ListeningTypes() {
@@ -46,8 +46,8 @@ func (s *Scheduler) Loop() {
 
 	for {
 		message := <-s.messages
-		log.Tracef("New Message: %s: %v", message.Type, message)
-		rec := message.Type
+		log.Tracef("New Message: %s: %v", message.Type(), message)
+		rec := message.Type()
 
 		for _, service := range s.services[rec] {
 			go func(service Service) {
