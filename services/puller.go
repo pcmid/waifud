@@ -113,10 +113,11 @@ func (p *Puller) serve() {
 			p.update()
 
 		case m := <-p.rms:
-			_url := m.Get("content").(string)
 
 			switch m.Get("operation").(int) {
 			case Sub:
+				_url := m.Get("content").(string)
+
 				if feed, ok := p.feeds[_url]; ok {
 					log.Errorf("Feed %s already existed", feed.Title)
 					p.Send(
@@ -153,6 +154,8 @@ func (p *Puller) serve() {
 				p.update()
 
 			case UnSub:
+				_url := m.Get("content").(string)
+
 				if feed, ok := p.feeds[_url]; ok {
 					delete(p.feeds, _url)
 
