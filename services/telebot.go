@@ -110,12 +110,25 @@ func (t *TeleBot) Handle(message core.Message) {
 
 		resp := strings.Builder{}
 		resp.WriteString("正在下载:\n")
+		items := 0
 
 		for _, status := range statues {
-			resp.WriteString(fmt.Sprintf("名称: %s\n\t状态: %s\n\t进度: %.2f%%\n", status.Name, status.Status, status.ProgressRate*100))
+			resp.WriteString(
+				fmt.Sprintf("名称: %s\n\t状态: %s\n\t进度: %.2f%%\n", status.Name, status.Status, status.ProgressRate*100),
+			)
+			items++
+
+			if items >= 50 {
+				go t.notify(resp.String(), false)
+				resp.Reset()
+				items = 0
+			}
 		}
 
-		go t.notify(resp.String(), false)
+		if resp.Len() != 0 {
+			go t.notify(resp.String(), false)
+
+		}
 	}
 }
 
@@ -186,7 +199,6 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 	log.Trace(url)
 
 	t.chat = m.Sender
-
 
 	msg := core.NewMessage("subscription").
 		Set("content", url).
