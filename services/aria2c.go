@@ -180,6 +180,8 @@ func (a *Aria2c) UpdateStatus() {
 	for gid, mission := range a.missions {
 		s, _ := rpcc.TellStatus(gid)
 		mission.Status = s.Status
+
+
 		mission.FollowedBy = s.FollowedBy
 		if s.InfoHash == "" {
 			// file from url
@@ -198,8 +200,13 @@ func (a *Aria2c) UpdateStatus() {
 		if s.TotalLength == "0" {
 			mission.ProgressRate = 0
 			return
+		} else {
+			mission.ProgressRate = completedLength / totalLength
 		}
-		mission.ProgressRate = completedLength / totalLength
+
+		if completedLength == totalLength {
+			mission.Status = "complete"
+		}
 	}
 }
 
