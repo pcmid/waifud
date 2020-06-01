@@ -86,7 +86,7 @@ func (t *TeleBot) Handle(message core.Message) {
 	case "notify":
 		go t.notify(message.Get("content").(string), false)
 	case "feeds":
-		feeds := message.Get("feeds").(map[string]*Feed)
+		feeds := message.Get("feeds").([]*Feed)
 		if len(feeds) == 0 {
 			go t.notify("未找到订阅", false)
 			return

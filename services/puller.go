@@ -66,11 +66,11 @@ func (p *Puller) Init() {
 	log.Tracef("set database min ttl %d", p.minTTL)
 
 	p.savedPath = "waifud.gob"
-	if viper.IsSet("service.database.saved-path") {
-		p.savedPath = viper.GetString("service.database.saved-path")
+	if viper.IsSet("service.puller.saved-path") {
+		p.savedPath = viper.GetString("service.puller.saved-path")
 	}
 
-	log.Infof("database saved as  %s", p.savedPath)
+	log.Infof("database saved as %s", p.savedPath)
 
 	isExist := func(filename string) bool {
 		_, err := os.Stat(filename)
