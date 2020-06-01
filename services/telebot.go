@@ -247,6 +247,8 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 		if err == nil {
 			log.Info("Init telebot successfully")
 			return b
+		} else {
+			log.Info("Failed to init telebot, wait...")
 		}
 	}
 }
