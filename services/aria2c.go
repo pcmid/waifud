@@ -9,6 +9,7 @@ import (
 	"github.com/zyxar/argo/rpc"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,8 +21,9 @@ type Aria2c struct {
 	rpcUrl    string
 	rpcSecret string
 
-	missions    map[string]*Mission
-	newMissions chan *Mission
+	missions map[string]*Mission
+
+	sync.Mutex
 
 	sms chan core.Message
 
@@ -54,8 +56,6 @@ func (a *Aria2c) Init() {
 
 	a.missions = make(map[string]*Mission)
 
-	a.newMissions = make(chan *Mission)
-
 	if viper.IsSet("service.aria2c.url") {
 		a.rpcUrl = viper.GetString("service.aria2c.url")
 		log.Tracef("set aria2c rpc url %s", a.rpcUrl)
@@ -82,56 +82,21 @@ func (a *Aria2c) Send(message core.Message) {
 }
 
 func (a *Aria2c) Serve() {
-	tick := time.NewTicker(2 * time.Second)
+	tick := time.NewTicker(10 * time.Second)
 
 	for {
-		select {
-		case <-tick.C:
-			a.UpdateStatus()
-
-			for gid, m := range a.missions {
-				switch m.Status {
-				case "complete":
-					log.Infof("%s download completed", m.Name)
-					if m.FollowedBy != nil {
-						for _, g := range m.FollowedBy {
-							a.missions[g] = &Mission{
-								Gid: g,
-							}
-						}
-					} else {
-						a.Send(
-							core.NewMessage("notify").
-								Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
-						)
-					}
-					delete(a.missions, gid)
-
-				case "error":
-					a.Send(
-						core.NewMessage("notify").
-							Set("content", fmt.Sprintf("%s 下载失败", m.Name)),
-					)
-					delete(a.missions, gid)
-
-				case "removed":
-					delete(a.missions, gid)
-				}
-			}
-		case mission := <-a.newMissions:
-			a.missions[mission.Gid] = mission
-		}
+		<-tick.C
+		a.update()
+		a.check()
 	}
 }
 
 func (a *Aria2c) Handle(message core.Message) {
-
 	switch message.Type() {
 	case "aria2c_api":
 		method := message.Get("content")
 		switch method {
 		case "status":
-
 			m := core.NewMessage("status").
 				Set("missions", a.missions)
 
@@ -141,6 +106,9 @@ func (a *Aria2c) Handle(message core.Message) {
 		url := message.Get("content").(string)
 		dir := message.Get("dir").(string)
 		a.Download(url, dir)
+
+		// slow down for next
+		time.Sleep(100 * time.Microsecond)
 	}
 }
 
@@ -177,11 +145,17 @@ func (a *Aria2c) Download(url, dir string) {
 	a.addMission(gid)
 }
 
-func (a *Aria2c) UpdateStatus() {
+func (a *Aria2c) update() {
 	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 
 	for gid, mission := range a.missions {
-		s, _ := rpcc.TellStatus(gid)
+		s, err := rpcc.TellStatus(gid)
+
+		if err != nil {
+			log.Errorf("Failed to get status for %s: %s", mission.Name, err)
+			mission.Status = "error"
+			continue
+		}
 
 		if s.Status == "" {
 			continue
@@ -215,6 +189,41 @@ func (a *Aria2c) UpdateStatus() {
 		if completedLength == totalLength {
 			mission.Status = "complete"
 		}
+
+		// slow down for next
+		time.Sleep(100 * time.Microsecond)
+	}
+}
+
+func (a *Aria2c) check() {
+	for gid, m := range a.missions {
+		switch m.Status {
+		case "complete":
+			log.Infof("%s download completed", m.Name)
+			if m.FollowedBy != nil {
+				for _, g := range m.FollowedBy {
+					a.addMission(g)
+				}
+			} else {
+				a.Send(
+					core.NewMessage("notify").
+						Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
+				)
+			}
+
+			a.delMission(gid)
+
+		case "error":
+			a.Send(
+				core.NewMessage("notify").
+					Set("content", fmt.Sprintf("%s 下载失败", m.Name)),
+			)
+
+			a.delMission(gid)
+
+		case "removed":
+			a.delMission(gid)
+		}
 	}
 }
 
@@ -234,7 +243,15 @@ func (a *Aria2c) getGlobalDir() {
 }
 
 func (a *Aria2c) addMission(gid string) {
-	a.newMissions <- &Mission{
+	a.Lock()
+	a.missions[gid] = &Mission{
 		Gid: gid,
 	}
+	a.Unlock()
+}
+
+func (a *Aria2c) delMission(gid string) {
+	a.Lock()
+	delete(a.missions, gid)
+	a.Unlock()
 }
