@@ -97,8 +97,23 @@ func (a *Aria2c) Handle(message core.Message) {
 		method := message.Get("content")
 		switch method {
 		case "status":
+
+			missions := make(map[string]*Mission)
+
+			for _, mission := range a.missions {
+
+				if mission.Status == "" {
+					continue
+				}
+
+				missions[mission.Gid] = &Mission{
+					Name:         mission.Name,
+					ProgressRate: mission.ProgressRate,
+				}
+			}
+
 			m := core.NewMessage("status").
-				Set("missions", a.missions)
+				Set("missions", missions)
 
 			a.Send(m)
 		}
