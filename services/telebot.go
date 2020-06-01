@@ -114,7 +114,7 @@ func (t *TeleBot) Handle(message core.Message) {
 
 		for _, status := range statues {
 			resp.WriteString(
-				fmt.Sprintf("名称: %s\n\t状态: %s\n\t进度: %.2f%%\n", status.Name, status.Status, status.ProgressRate*100),
+				fmt.Sprintf("名称: %s\n\t进度: %.2f%%\n", status.Name, status.ProgressRate*100),
 			)
 			items++
 
