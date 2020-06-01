@@ -93,14 +93,17 @@ func (a *Aria2c) Serve() {
 				switch m.Status {
 				case "complete":
 					log.Infof("%s download completed", m.Name)
-					a.Send(
-						core.NewMessage("notify").
-							Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
-					)
-					if followed := m.FollowedBy; followed != nil {
-						for _, g := range followed {
-							go a.addMission(g)
+					if m.FollowedBy != nil {
+						for _, g := range m.FollowedBy {
+							a.missions[g] = &Mission{
+								Gid: g,
+							}
 						}
+					} else {
+						a.Send(
+							core.NewMessage("notify").
+								Set("content", fmt.Sprintf("%s 下载完成", m.Name)),
+						)
 					}
 					delete(a.missions, gid)
 
@@ -179,10 +182,15 @@ func (a *Aria2c) UpdateStatus() {
 
 	for gid, mission := range a.missions {
 		s, _ := rpcc.TellStatus(gid)
+
+		if s.Status == "" {
+			continue
+		}
+
 		mission.Status = s.Status
 
-
 		mission.FollowedBy = s.FollowedBy
+
 		if s.InfoHash == "" {
 			// file from url
 			mission.Name = s.Files[0].Path[strings.LastIndex(s.Files[0].Path, "/")+1:]
