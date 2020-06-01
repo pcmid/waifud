@@ -121,7 +121,7 @@ func (a *Aria2c) Download(url, dir string) {
 	}()
 
 	if err != nil {
-		log.Errorf("%s Failed to connect aria2 rpc server: %s", a.Name(), err)
+		log.Errorf("Failed to connect aria2 rpc server: %s", err)
 		a.Send(
 			core.NewMessage("notify").
 				Set("content", "添加下载失败"),
@@ -134,7 +134,7 @@ func (a *Aria2c) Download(url, dir string) {
 	})
 
 	if err != nil {
-		log.Errorf("%s Failed to AddURL for aria2c: %s", a.Name(), err)
+		log.Errorf("Failed to AddURL for aria2c: %s", err)
 		a.Send(
 			core.NewMessage("notify").
 				Set("content", "添加下载失败"),
@@ -166,14 +166,14 @@ func (a *Aria2c) update() {
 		mission.FollowedBy = s.FollowedBy
 
 		if s.InfoHash == "" {
-			// file from url
+			// from url
 			mission.Name = s.Files[0].Path[strings.LastIndex(s.Files[0].Path, "/")+1:]
 		} else if s.BitTorrent.Info.Name != "" {
-			// files from torrent
+			// from torrent
 			mission.Name = s.BitTorrent.Info.Name
 		} else {
-			// file from metalink
-			mission.Name = s.Files[0].Path
+			// from torrent link
+			mission.Name = "[METADATA]" + s.InfoHash
 		}
 
 		completedLength, _ := strconv.ParseFloat(s.CompletedLength, 10)
