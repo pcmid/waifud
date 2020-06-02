@@ -31,7 +31,7 @@ service:
 ### telebot
 ```
 /ping  
-/sub url [dir]	    # 添加订阅
+/sub url [dir]	    # 添加订阅 aria2全局下的相对目录
 /ubsub url	        # 取消订阅
 /getsub		        # 查看全部订阅
 /link url [dir]	    # 直接下载链接
