@@ -1,0 +1,172 @@
+---
+kind: pipeline
+name: testing
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: test
+  pull: always
+  image: golang
+  commands:
+  - go test
+  environment:
+    GO111MODULE: on
+
+trigger:
+  branch:
+  - master
+
+---
+kind: pipeline
+name: linux_amd64
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build-push
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_amd64
+  environment:
+    CGO_ENABLED: 0
+    GO111MODULE: on
+  when:
+    event:
+      exclude:
+      - tag
+
+- name: build
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_amd64
+  environment:
+    GO111MODULE: on
+  when:
+    event:
+    - tag
+
+- name: release
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: GITHUB_API_KEY
+    files: release/*
+  when:
+    event:
+    - tag
+
+trigger:
+  branch:
+  - master
+
+depends_on:
+- testing
+
+---
+kind: pipeline
+name: linux_arm64
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build-push
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=arm64 go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm64
+  environment:
+    CGO_ENABLED: 0
+    GO111MODULE: on
+  when:
+    event:
+      exclude:
+      - tag
+
+- name: build
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=arm64 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm64
+  environment:
+    GO111MODULE: on
+  when:
+    event:
+    - tag
+
+- name: release
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: GITHUB_API_KEY
+    files: release/*
+  when:
+    event:
+    - tag
+
+trigger:
+  branch:
+  - master
+
+depends_on:
+- testing
+
+---
+kind: pipeline
+name: linux_arm
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build-push
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=arm go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm
+  environment:
+    CGO_ENABLED: 0
+    GO111MODULE: on
+  when:
+    event:
+      exclude:
+      - tag
+
+- name: build
+  pull: always
+  image: golang
+  commands:
+  - GOOS=linux GOARCH=arm go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm
+  environment:
+    GO111MODULE: on
+  when:
+    event:
+    - tag
+
+- name: release
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: GITHUB_API_KEY
+    files: release/*
+  when:
+    event:
+    - tag
+
+trigger:
+  branch:
+  - master
+
+depends_on:
+- testing
+
+...
