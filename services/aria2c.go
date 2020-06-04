@@ -2,11 +2,14 @@ package services
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 	"github.com/pcmid/waifud/core"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/zyxar/argo/rpc"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +23,8 @@ func init() {
 type Aria2c struct {
 	rpcUrl    string
 	rpcSecret string
+
+	session string
 
 	missions map[string]*Mission
 
@@ -72,6 +77,15 @@ func (a *Aria2c) Init() {
 		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
 	}
 
+	if viper.IsSet("service.aria2c.session") {
+		a.session = viper.GetString("service.aria2c.session")
+		log.Tracef("set aria2c session: %s", a.session)
+	} else {
+		log.Warn("aria2c session not found, session will not be saved")
+	}
+
+	a.restore()
+
 	for err := a.connect(); err != nil; {
 		log.Errorf("Failed to connect aria2 jsonrpc: %s", err)
 
@@ -93,11 +107,16 @@ func (a *Aria2c) Send(message core.Message) {
 
 func (a *Aria2c) Serve() {
 	tick := time.NewTicker(10 * time.Second)
+	tickForSave := time.NewTicker(5 * time.Minute)
 
 	for {
-		<-tick.C
-		a.update()
-		a.check()
+		select {
+		case <-tick.C:
+			a.update()
+			a.check()
+		case <-tickForSave.C:
+			a.save()
+		}
 	}
 }
 
@@ -128,9 +147,9 @@ func (a *Aria2c) Handle(message core.Message) {
 			a.Send(m)
 		}
 	case "item":
-		url := message.Get("content").(string)
+		uri := message.Get("content").(string)
 		dir := message.Get("dir").(string)
-		a.download(url, dir)
+		a.download(uri, dir)
 
 		// slow down for next
 		time.Sleep(100 * time.Microsecond)
@@ -188,13 +207,18 @@ func (a *Aria2c) update() {
 
 		if s.InfoHash == "" {
 			// from url
-			mission.Name = s.Files[0].Path[strings.LastIndex(s.Files[0].Path, "/")+1:]
+			file, _ := url.ParseRequestURI(s.Files[0].URIs[0].URI)
+			mission.Name = file.Path[strings.LastIndex(file.Path, "/")+1:]
 		} else if s.BitTorrent.Info.Name != "" {
 			// from torrent
 			mission.Name = s.BitTorrent.Info.Name
 		} else {
 			// from torrent link
 			mission.Name = "[METADATA]" + s.InfoHash
+		}
+
+		if mission.Name == "" || mission.Status == "" {
+			log.Warnf("bug: %s", mission)
 		}
 
 		completedLength, _ := strconv.ParseFloat(s.CompletedLength, 10)
@@ -246,6 +270,49 @@ func (a *Aria2c) check() {
 			a.delMission(gid)
 		}
 	}
+}
+
+func (a *Aria2c) save() {
+	if a.session == "" {
+		return
+	}
+
+	file, err := os.Create(a.session)
+	defer func() {
+		_ = file.Close()
+	}()
+
+	if err == os.ErrExist {
+		file, _ = os.Open(a.session)
+		defer func() {
+			_ = file.Close()
+		}()
+	} else if err != nil {
+		log.Errorf("Failed to open aria2c session: %s", err)
+		return
+	}
+
+	enc := gob.NewEncoder(file)
+
+	a.Lock()
+	_ = enc.Encode(a.missions)
+	a.Unlock()
+}
+
+func (a *Aria2c) restore() {
+	if a.session == "" {
+		return
+	}
+
+	file, err := os.Open(a.session)
+
+	if err != err {
+		log.Errorf("Failed to restore session: %s", err)
+		return
+	}
+
+	dec := gob.NewDecoder(file)
+	_ = dec.Decode(&a.missions)
 }
 
 func (a *Aria2c) getGlobalDir() {
