@@ -23,6 +23,8 @@ type Aria2c struct {
 
 	missions map[string]*Mission
 
+	rpcc rpc.Client
+
 	sync.Mutex
 
 	sms chan core.Message
@@ -68,6 +70,14 @@ func (a *Aria2c) Init() {
 		log.Tracef("set aria2c rpc secret %s", a.rpcSecret)
 	} else {
 		log.Warnf("aria2 rpc secret not found, use \"%s\"", a.rpcSecret)
+	}
+
+	for err := a.connect(); err != nil; {
+		log.Errorf("Failed to connect aria2 jsonrpc: %s", err)
+
+		// reconnect
+		time.Sleep(10 * time.Second)
+		err = a.connect()
 	}
 
 	a.getGlobalDir()
@@ -120,31 +130,29 @@ func (a *Aria2c) Handle(message core.Message) {
 	case "item":
 		url := message.Get("content").(string)
 		dir := message.Get("dir").(string)
-		a.Download(url, dir)
+		a.download(url, dir)
 
 		// slow down for next
 		time.Sleep(100 * time.Microsecond)
 	}
 }
 
-func (a *Aria2c) Download(url, dir string) {
-	log.Infof("download %s at %s", url, a.globalDir+"/"+dir)
-
-	rpcc, err := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
-	defer func() {
-		_ = rpcc.Close()
-	}()
-
-	if err != nil {
-		log.Errorf("Failed to connect aria2 rpc server: %s", err)
-		a.Send(
-			core.NewMessage("notify").
-				Set("content", "添加下载失败"),
-		)
+func (a *Aria2c) connect() (err error) {
+	if a.rpcc, err = rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, 10*time.Second, nil); err != nil {
+		log.Debugf("Failed to create aria2 connection: %s", err)
 		return
 	}
 
-	gid, err := rpcc.AddURI(url, rpc.Option{
+	//for test
+	_, err = a.rpcc.GetSessionInfo()
+
+	return
+}
+
+func (a *Aria2c) download(url, dir string) {
+	log.Infof("download %s at %s", url, a.globalDir+"/"+dir)
+
+	gid, err := a.rpcc.AddURI(url, rpc.Option{
 		"dir": a.globalDir + "/" + dir,
 	})
 
@@ -161,10 +169,8 @@ func (a *Aria2c) Download(url, dir string) {
 }
 
 func (a *Aria2c) update() {
-	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
-
 	for gid, mission := range a.missions {
-		s, err := rpcc.TellStatus(gid)
+		s, err := a.rpcc.TellStatus(gid)
 
 		if err != nil {
 			log.Errorf("Failed to get status for %s: %s", mission.Name, err)
@@ -243,15 +249,14 @@ func (a *Aria2c) check() {
 }
 
 func (a *Aria2c) getGlobalDir() {
-	rpcc, _ := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 
-	m, err := rpcc.GetGlobalOption()
+	var m rpc.Option
+	var err error
 
-	if err != nil {
-		log.Errorf("Failed to get global dir, dose the aria2c daemon not start?: %s", err)
+	for m, err = a.rpcc.GetGlobalOption(); err != nil; {
+		log.Errorf("Failed to get global dir: %s", err)
+		m, err = a.rpcc.GetGlobalOption()
 		time.Sleep(5 * time.Second)
-		a.getGlobalDir()
-		return
 	}
 
 	a.globalDir = m["dir"].(string)
