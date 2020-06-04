@@ -248,9 +248,10 @@ func (a *Aria2c) getGlobalDir() {
 	m, err := rpcc.GetGlobalOption()
 
 	if err != nil {
-		log.Errorf("Fauled to get global dir, dose the arai2c daemon not start?: %s", err)
+		log.Errorf("Failed to get global dir, dose the aria2c daemon not start?: %s", err)
 		time.Sleep(5 * time.Second)
 		a.getGlobalDir()
+		return
 	}
 
 	a.globalDir = m["dir"].(string)
