@@ -71,6 +71,10 @@ func main() {
 	c := &core.Scheduler{}
 
 	for service := range viper.GetStringMapStringSlice("service") {
+		if viper.IsSet(fmt.Sprintf("service.%s.enable", service)) && viper.GetBool(fmt.Sprintf("service.%s.enable", service)) == false {
+			continue
+		}
+
 		c.Init(service)
 		log.Tracef("Init %s", service)
 	}

@@ -1,11 +1,15 @@
 service:
   puller:
+    enable: true
     saved-path: "waifud.gob"
     min-ttl: 600
 
   telebot:
+    enable: true
     token: ""
 
   aria2c:
+    enable: true
     url: "http://127.0.0.1:6800/jsonrpc"
     secret: ""
+    session: ""
