@@ -17,15 +17,19 @@ CONFIG_PATH :
 ```yaml
 service:
   puller:
+    enable: true                # 是否启用; 默认: true
     saved-path: "waifud.gob"    # 订阅存储路径
     min-ttl: 600                # rss 最小 ttl
 
   telebot:
+    enable: true                # 是否启用; 默认: true
     token: ""                   # telebot token
 
   aria2c:
+    enable: true                # 是否启用; 默认: true
     url: ""                     # aria2 rpc 地址
     secret: ""                  # aria2 rpc 密码
+    session: ""                 # session 保存路径; 空为不保存
 ```
 
 ### telebot
