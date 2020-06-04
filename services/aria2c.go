@@ -128,7 +128,7 @@ func (a *Aria2c) Handle(message core.Message) {
 }
 
 func (a *Aria2c) Download(url, dir string) {
-	log.Infof("%s Download %s", a.Name(), url)
+	log.Infof("download %s at %s", url, a.globalDir+"/"+dir)
 
 	rpcc, err := rpc.New(context.Background(), a.rpcUrl, a.rpcSecret, time.Second, nil)
 	defer func() {
@@ -248,13 +248,14 @@ func (a *Aria2c) getGlobalDir() {
 	m, err := rpcc.GetGlobalOption()
 
 	if err != nil {
-		log.Error(err)
-		return
+		log.Errorf("Fauled to get global dir, dose the arai2c daemon not start?: %s", err)
+		time.Sleep(5 * time.Second)
+		a.getGlobalDir()
 	}
 
-	log.Trace(m)
-
 	a.globalDir = m["dir"].(string)
+
+	log.Debugf("aria2 global dir: %s", a.globalDir)
 }
 
 func (a *Aria2c) addMission(gid string) {
