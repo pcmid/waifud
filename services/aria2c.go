@@ -184,6 +184,11 @@ func (a *Aria2c) download(url, dir string) {
 		return
 	}
 
+	a.Send(
+		core.NewMessage("notify").
+			Set("content", "新的任务已添加"),
+	)
+
 	a.addMission(gid)
 }
 
