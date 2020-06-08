@@ -52,6 +52,7 @@ func (a *Aria2c) Name() string {
 func (a *Aria2c) ListeningTypes() []string {
 	return []string{
 		"item",
+		"link",
 		"aria2c_api",
 	}
 }
@@ -149,10 +150,31 @@ func (a *Aria2c) Handle(message core.Message) {
 	case "item":
 		uri := message.Get("content").(string)
 		dir := message.Get("dir").(string)
-		a.download(uri, dir)
+		if err := a.download(uri, dir); err != nil {
+			log.Errorf("Failed to AddURL for aria2c: %s", err)
+			a.Send(
+				core.NewMessage("notify").
+					Set("content", "下载更新失败"),
+			)
+		}
 
 		// slow down for next
 		time.Sleep(100 * time.Microsecond)
+	case "link":
+		uri := message.Get("url").(string)
+		dir := message.Get("dir").(string)
+		if err := a.download(uri, dir); err != nil {
+			log.Errorf("Failed to AddURL for aria2c: %s", err)
+			a.Send(
+				core.NewMessage("notify").
+					Set("content", "添加下载失败"),
+			)
+		} else {
+			a.Send(
+				core.NewMessage("notify").
+					Set("content", "新的任务已添加"),
+			)
+		}
 	}
 }
 
@@ -168,7 +190,7 @@ func (a *Aria2c) connect() (err error) {
 	return
 }
 
-func (a *Aria2c) download(url, dir string) {
+func (a *Aria2c) download(url, dir string) error {
 	log.Infof("download %s at %s", url, a.globalDir+"/"+dir)
 
 	gid, err := a.rpcc.AddURI(url, rpc.Option{
@@ -176,20 +198,12 @@ func (a *Aria2c) download(url, dir string) {
 	})
 
 	if err != nil {
-		log.Errorf("Failed to AddURL for aria2c: %s", err)
-		a.Send(
-			core.NewMessage("notify").
-				Set("content", "添加下载失败"),
-		)
-		return
+		return err
 	}
 
-	a.Send(
-		core.NewMessage("notify").
-			Set("content", "新的任务已添加"),
-	)
-
 	a.addMission(gid)
+
+	return nil
 }
 
 func (a *Aria2c) update() {
