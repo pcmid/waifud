@@ -159,7 +159,7 @@ func (a *Aria2c) Handle(message core.Message) {
 		}
 
 		// slow down for next
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(10 * time.Millisecond)
 	case "link":
 		uri := message.Get("url").(string)
 		dir := message.Get("dir").(string)
@@ -255,7 +255,7 @@ func (a *Aria2c) update() {
 		}
 
 		// slow down for next
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
