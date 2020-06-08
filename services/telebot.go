@@ -232,8 +232,8 @@ func (t *TeleBot) commandLink(m *tb.Message) {
 		dir = contents[1]
 	}
 
-	msg := core.NewMessage("item").
-		Set("content", url).
+	msg := core.NewMessage("link").
+		Set("url", url).
 		Set("dir", dir)
 
 	t.Send(msg)
