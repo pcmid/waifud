@@ -18,11 +18,14 @@ func init() {
 type TeleBot struct {
 	bot *tb.Bot
 
-	rms chan core.Message
-	sms chan core.Message
+	//rms chan core.Message
+	//sms chan core.Message
 
 	chat      tb.Recipient
 	isPrivate bool
+
+	core.Receiver
+	core.Sender
 }
 
 func (t *TeleBot) Name() string {
@@ -33,7 +36,7 @@ func (t *TeleBot) ListeningTypes() []string {
 	return []string{
 		"feeds",
 		"notify",
-		"status",
+		//"status",
 	}
 }
 
@@ -92,6 +95,8 @@ func (t *TeleBot) Handle(message core.Message) {
 		return
 	}
 
+	t.Receiver.Handle(message)
+
 	switch message.Type() {
 	case "notify":
 		go t.notify(message.Get("content").(string), false)
@@ -111,34 +116,6 @@ func (t *TeleBot) Handle(message core.Message) {
 
 		go t.notify(resp.String(), true)
 
-	case "status":
-		statues := message.Get("missions").(map[string]*Mission)
-		if len(statues) == 0 {
-			go t.notify("未找到下载项目", false)
-			return
-		}
-
-		resp := strings.Builder{}
-		resp.WriteString("正在下载:\n")
-		items := 0
-
-		for _, status := range statues {
-			resp.WriteString(
-				fmt.Sprintf("名称: %s\n\t进度: %.2f%%\n", status.Name, status.ProgressRate*100),
-			)
-			items++
-
-			if items >= 50 {
-				go t.notify(resp.String(), false)
-				resp.Reset()
-				items = 0
-			}
-		}
-
-		if resp.Len() != 0 {
-			go t.notify(resp.String(), false)
-
-		}
 	}
 }
 
@@ -272,9 +249,35 @@ func (t *TeleBot) commandStatus(m *tb.Message) {
 		return
 	}
 
-	t.Send(core.NewMessage("aria2c_api").
+	statues := t.Send(core.NewMessage("aria2c_api").
 		Set("content", "status"),
-	)
+	).Get("missions").(map[string]*Mission)
+
+	if len(statues) == 0 {
+		go t.notify("未找到下载项目", false)
+		return
+	}
+
+	resp := strings.Builder{}
+	resp.WriteString("正在下载:\n")
+	items := 0
+
+	for _, status := range statues {
+		resp.WriteString(
+			fmt.Sprintf("名称: %s\n\t进度: %.2f%%\n", status.Name, status.ProgressRate*100),
+		)
+		items++
+
+		if items >= 50 {
+			go t.notify(resp.String(), false)
+			resp.Reset()
+			items = 0
+		}
+	}
+
+	if resp.Len() != 0 {
+		go t.notify(resp.String(), false)
+	}
 }
 
 func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
@@ -295,15 +298,12 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	}
 }
 
-func (t *TeleBot) SetMessageChan(ms chan core.Message) {
-	t.sms = ms
-}
-
-func (t *TeleBot) Send(message core.Message) {
-	t.sms <- message
-}
-
 func (t *TeleBot) check(m *tb.Message) bool {
+
+	if !t.isPrivate {
+		t.chat = m.Sender
+		return true
+	}
 
 	if t.chat != nil {
 		log.Tracef("chat: %s", t.chat.Recipient())

@@ -31,7 +31,9 @@ type Puller struct {
 	feeds map[string]*Feed
 
 	rms chan core.Message
-	sms chan core.Message
+
+	core.Receiver
+	core.Sender
 }
 
 type Feed struct {
@@ -90,17 +92,6 @@ func (p *Puller) Serve() {
 
 func (p *Puller) Handle(message core.Message) {
 	p.rms <- message
-}
-
-func (p *Puller) SetMessageChan(sms chan core.Message) {
-	p.sms = sms
-}
-
-func (p *Puller) Send(message core.Message) {
-	if p.sms == nil {
-		return
-	}
-	p.sms <- message
 }
 
 func (p *Puller) serve() {

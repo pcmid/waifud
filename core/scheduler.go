@@ -52,6 +52,7 @@ func (s *Scheduler) Loop() {
 		for _, service := range s.services[rec] {
 			go func(service Service) {
 				service.Handle(message)
+				service.PostHandle(message)
 			}(service)
 		}
 	}
