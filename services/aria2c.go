@@ -57,6 +57,11 @@ func (a *Aria2c) ListeningTypes() []string {
 	}
 }
 
+func (a *Aria2c) Start() {
+	a.Init()
+	a.Serve()
+}
+
 func (a *Aria2c) Init() {
 
 	a.rpcUrl = "http://127.0.0.1:6800/jsonrpc"

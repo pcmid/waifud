@@ -34,7 +34,7 @@ func (t *TeleBot) Name() string {
 
 func (t *TeleBot) ListeningTypes() []string {
 	return []string{
-		"feeds",
+		//"feeds",
 		"notify",
 		//"status",
 	}
@@ -88,6 +88,11 @@ func (t *TeleBot) Serve() {
 		return
 	}
 	t.bot.Start()
+}
+
+func (t *TeleBot) Start() {
+	t.Init()
+	t.Serve()
 }
 
 func (t *TeleBot) Handle(message core.Message) {
@@ -216,7 +221,22 @@ func (t *TeleBot) commandGetSub(m *tb.Message) {
 	msg := core.NewMessage("subscription").
 		Set("operation", GetSub)
 
-	t.Send(msg)
+	response := t.Send(msg)
+
+	feeds := response.Get("feeds").([]*Feed)
+	if len(feeds) == 0 {
+		go t.notify("未找到订阅", false)
+		return
+	}
+
+	resp := strings.Builder{}
+	resp.WriteString("订阅如下:\n")
+
+	for _, feed := range feeds {
+		resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
+	}
+
+	go t.notify(resp.String(), true)
 }
 
 func (t *TeleBot) commandLink(m *tb.Message) {

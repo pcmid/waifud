@@ -9,7 +9,7 @@ type Scheduler struct {
 	services map[string][]Service
 }
 
-func (s *Scheduler) Init(serviceName string) {
+func (s *Scheduler) Launch(serviceName string) {
 
 	var service Service
 	var ok bool
@@ -36,9 +36,8 @@ func (s *Scheduler) Init(serviceName string) {
 	service.SetMessageChan(s.messages)
 
 	go func() {
-		service.Init()
+		service.Start()
 		log.Infof("Service %s Start...", service.Name())
-		service.Serve()
 	}()
 }
 

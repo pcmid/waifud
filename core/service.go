@@ -52,8 +52,7 @@ func (s *Sender) Send(message Message) Message {
 type Service interface {
 	Name() string
 	ListeningTypes() []string
-	Init()
-	Serve()
+	Start()
 
 	R
 	S
