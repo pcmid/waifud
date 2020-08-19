@@ -42,7 +42,7 @@ type Feed struct {
 	URL        string
 	FiledCount int
 
-	dir string
+	Dir string
 }
 
 func (p *Puller) Name() string {
@@ -128,9 +128,9 @@ func (p *Puller) Handle(message core.Message) {
 		p.Lock()
 		p.feeds[_url] = &Feed{
 			URL: _url,
-			dir: message.Get("dir").(string),
+			Dir: message.Get("dir").(string),
 		}
-		p.Lock()
+		p.Unlock()
 		log.Infof("Add subscribe %s successfully", _url)
 
 		p.Send(
@@ -259,6 +259,7 @@ func (p *Puller) update() {
 		updated := p.merge(&Feed{
 			Feed: *newData,
 			URL:  u,
+			Dir:  feed.Dir,
 		})
 
 		for _, item := range updated {
@@ -270,7 +271,7 @@ func (p *Puller) update() {
 				p.Send(
 					core.NewMessage("item").
 						Set("content", u.String()).
-						Set("dir", feed.dir),
+						Set("dir", feed.Dir),
 				)
 			}
 		}
