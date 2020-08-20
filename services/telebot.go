@@ -18,10 +18,14 @@ func init() {
 type TeleBot struct {
 	bot *tb.Bot
 
-	rms chan core.Message
-	sms chan core.Message
+	//rms chan core.Message
+	//sms chan core.Message
 
-	chat tb.Recipient
+	chat      tb.Recipient
+	isPrivate bool
+
+	core.Receiver
+	core.Sender
 }
 
 func (t *TeleBot) Name() string {
@@ -30,14 +34,14 @@ func (t *TeleBot) Name() string {
 
 func (t *TeleBot) ListeningTypes() []string {
 	return []string{
-		"feeds",
+		//"feeds",
 		"notify",
-		"status",
+		//"status",
 	}
 }
 
 func (t *TeleBot) Init() {
-	token := viper.GetString("service.teleBot.token")
+	token := viper.GetString("service.telebot.token")
 
 	if token == "" {
 		log.Error("TeleBot token not found, exit")
@@ -45,6 +49,14 @@ func (t *TeleBot) Init() {
 	}
 
 	log.Tracef("set telebot token %s", token)
+
+	t.isPrivate = viper.GetBool("service.telebot.private")
+
+	if t.isPrivate == false {
+		log.Warnf("telebot.private is been set false, everyone can access your bot!")
+	}
+
+	log.Tracef("set telebot private: %v", t.isPrivate)
 
 	b, err := tb.NewBot(tb.Settings{
 		Token:  token,
@@ -60,6 +72,7 @@ func (t *TeleBot) Init() {
 		_, _ = b.Send(m.Sender, "pong!")
 	})
 
+	b.Handle("/reg", t.commandReg)
 	b.Handle("/sub", t.commandSub)
 	b.Handle("/unsub", t.commandUnSub)
 	b.Handle("/getsub", t.commandGetSub)
@@ -77,10 +90,17 @@ func (t *TeleBot) Serve() {
 	t.bot.Start()
 }
 
+func (t *TeleBot) Start() {
+	t.Init()
+	t.Serve()
+}
+
 func (t *TeleBot) Handle(message core.Message) {
 	if t.chat == nil {
 		return
 	}
+
+	t.Receiver.Handle(message)
 
 	switch message.Type() {
 	case "notify":
@@ -101,34 +121,6 @@ func (t *TeleBot) Handle(message core.Message) {
 
 		go t.notify(resp.String(), true)
 
-	case "status":
-		statues := message.Get("missions").(map[string]*Mission)
-		if len(statues) == 0 {
-			go t.notify("未找到下载项目", false)
-			return
-		}
-
-		resp := strings.Builder{}
-		resp.WriteString("正在下载:\n")
-		items := 0
-
-		for _, status := range statues {
-			resp.WriteString(
-				fmt.Sprintf("名称: %s\n\t进度: %.2f%%\n", status.Name, status.ProgressRate*100),
-			)
-			items++
-
-			if items >= 50 {
-				go t.notify(resp.String(), false)
-				resp.Reset()
-				items = 0
-			}
-		}
-
-		if resp.Len() != 0 {
-			go t.notify(resp.String(), false)
-
-		}
 	}
 }
 
@@ -162,7 +154,21 @@ func (t *TeleBot) notify(m string, isMarkDown bool) {
 	}
 }
 
+func (t *TeleBot) commandReg(m *tb.Message) {
+	if t.chat == nil {
+		log.Infof("new user registered: %s", m.Sender.Username)
+		t.chat = m.Sender
+		t.notify("注册成功", false)
+	} else {
+		return
+	}
+}
+
 func (t *TeleBot) commandSub(m *tb.Message) {
+	if !t.check(m) {
+		return
+	}
+
 	payload := m.Payload
 	if payload == "" {
 		_, _ = t.bot.Send(m.Sender, "usage :/sub URL [dir]")
@@ -180,8 +186,6 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 		dir = contents[1]
 	}
 
-	t.chat = m.Sender
-
 	t.Send(
 		core.NewMessage("subscription").
 			Set("content", url).
@@ -191,14 +195,16 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 }
 
 func (t *TeleBot) commandUnSub(m *tb.Message) {
+	if !t.check(m) {
+		return
+	}
+
 	url := m.Payload
 	if url == "" {
 		_, _ = t.bot.Send(m.Sender, "usage :/unsub URL")
 		return
 	}
 	log.Trace(url)
-
-	t.chat = m.Sender
 
 	msg := core.NewMessage("subscription").
 		Set("content", url).
@@ -208,16 +214,35 @@ func (t *TeleBot) commandUnSub(m *tb.Message) {
 }
 
 func (t *TeleBot) commandGetSub(m *tb.Message) {
-	t.chat = m.Sender
+	if !t.check(m) {
+		return
+	}
 
 	msg := core.NewMessage("subscription").
 		Set("operation", GetSub)
 
-	t.Send(msg)
+	response := t.Send(msg)
+
+	feeds := response.Get("feeds").([]*Feed)
+	if len(feeds) == 0 {
+		go t.notify("未找到订阅", false)
+		return
+	}
+
+	resp := strings.Builder{}
+	resp.WriteString("订阅如下:\n")
+
+	for _, feed := range feeds {
+		resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
+	}
+
+	go t.notify(resp.String(), true)
 }
 
 func (t *TeleBot) commandLink(m *tb.Message) {
-	t.chat = m.Sender
+	if !t.check(m) {
+		return
+	}
 
 	payload := m.Payload
 	log.Trace(payload)
@@ -240,11 +265,39 @@ func (t *TeleBot) commandLink(m *tb.Message) {
 }
 
 func (t *TeleBot) commandStatus(m *tb.Message) {
-	t.chat = m.Sender
+	if !t.check(m) {
+		return
+	}
 
-	t.Send(core.NewMessage("aria2c_api").
+	statues := t.Send(core.NewMessage("aria2c_api").
 		Set("content", "status"),
-	)
+	).Get("missions").(map[string]*Mission)
+
+	if len(statues) == 0 {
+		go t.notify("未找到下载项目", false)
+		return
+	}
+
+	resp := strings.Builder{}
+	resp.WriteString("正在下载:\n")
+	items := 0
+
+	for _, status := range statues {
+		resp.WriteString(
+			fmt.Sprintf("名称: %s\n\t进度: %.2f%%\n", status.Name, status.ProgressRate*100),
+		)
+		items++
+
+		if items >= 50 {
+			go t.notify(resp.String(), false)
+			resp.Reset()
+			items = 0
+		}
+	}
+
+	if resp.Len() != 0 {
+		go t.notify(resp.String(), false)
+	}
 }
 
 func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
@@ -265,10 +318,23 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 	}
 }
 
-func (t *TeleBot) SetMessageChan(ms chan core.Message) {
-	t.sms = ms
-}
+func (t *TeleBot) check(m *tb.Message) bool {
 
-func (t *TeleBot) Send(message core.Message) {
-	t.sms <- message
+	if !t.isPrivate {
+		t.chat = m.Sender
+		return true
+	}
+
+	if t.chat != nil {
+		log.Tracef("chat: %s", t.chat.Recipient())
+	}
+	log.Tracef("sender: %s", m.Sender.Recipient())
+
+	if t.isPrivate && t.chat != nil && t.chat.Recipient() == m.Sender.Recipient() {
+		return true
+	}
+
+	log.Warnf("unauthorized access: %v", m.Sender)
+	_, _ = t.bot.Send(m.Sender, "未授权的访问!")
+	return false
 }

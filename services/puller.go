@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -28,10 +29,11 @@ type Puller struct {
 	minTTL    time.Duration
 	savedPath string
 
+	sync.RWMutex
 	feeds map[string]*Feed
 
-	rms chan core.Message
-	sms chan core.Message
+	core.Receiver
+	core.Sender
 }
 
 type Feed struct {
@@ -40,7 +42,7 @@ type Feed struct {
 	URL        string
 	FiledCount int
 
-	dir string
+	Dir string
 }
 
 func (p *Puller) Name() string {
@@ -53,9 +55,13 @@ func (p *Puller) ListeningTypes() []string {
 	}
 }
 
+func (p *Puller) Start() {
+	p.Init()
+	p.Serve()
+}
+
 func (p *Puller) Init() {
 	p.feeds = make(map[string]*Feed)
-	p.rms = make(chan core.Message)
 
 	p.minTTL = time.Duration(MinTtl)
 
@@ -84,106 +90,87 @@ func (p *Puller) Init() {
 
 func (p *Puller) Serve() {
 	log.Debug("database serve")
-
-	p.serve()
+	tick := time.NewTicker(time.Second * p.minTTL)
+	for {
+		<-tick.C
+		p.update()
+		p.save()
+	}
 }
 
 func (p *Puller) Handle(message core.Message) {
-	p.rms <- message
-}
+	switch message.Get("operation").(int) {
+	case Sub:
+		_url := message.Get("content").(string)
 
-func (p *Puller) SetMessageChan(sms chan core.Message) {
-	p.sms = sms
-}
+		if feed, ok := p.feeds[_url]; ok {
+			log.Errorf("Feed %s already existed", feed.Title)
+			p.Send(
+				core.NewMessage("notify").
+					Set("content", fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Title)),
+			)
 
-func (p *Puller) Send(message core.Message) {
-	if p.sms == nil {
-		return
-	}
-	p.sms <- message
-}
-
-func (p *Puller) serve() {
-
-	tick := time.NewTicker(time.Second * p.minTTL)
-	for {
-
-		select {
-		case <-tick.C:
-			p.update()
-
-		case m := <-p.rms:
-
-			switch m.Get("operation").(int) {
-			case Sub:
-				_url := m.Get("content").(string)
-
-				if feed, ok := p.feeds[_url]; ok {
-					log.Errorf("Feed %s already existed", feed.Title)
-					p.Send(
-						core.NewMessage("notify").
-							Set("content", fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Title)),
-					)
-
-					continue
-				}
-
-				var title string
-				if feed, err := gofeed.NewParser().ParseURL(_url); err != nil {
-					log.Warnf("Failed to add feed: %s", err)
-					p.Send(
-						core.NewMessage("notify").
-							Set("content", "订阅失败"),
-					)
-					continue
-				} else {
-					title = feed.Title
-				}
-
-				p.feeds[_url] = &Feed{
-					URL: _url,
-					dir: m.Get("dir").(string),
-				}
-				log.Infof("Add subscribe %s successfully", _url)
-
-				p.Send(
-					core.NewMessage("notify").
-						Set("content", fmt.Sprintf("订阅成功: %s", title)),
-				)
-
-				p.update()
-
-			case UnSub:
-				_url := m.Get("content").(string)
-
-				if feed, ok := p.feeds[_url]; ok {
-					delete(p.feeds, _url)
-
-					p.Send(
-						core.NewMessage("notify").
-							Set("content", fmt.Sprintf("成功取消订阅: %s", feed.Title)),
-					)
-
-				} else {
-					p.Send(
-						core.NewMessage("notify").
-							Set("content", "订阅不存在！"),
-					)
-				}
-
-			case GetSub:
-				var feeds []*Feed
-				for _, feed := range p.feeds {
-					feeds = append(feeds, feed)
-				}
-
-				m := core.NewMessage("feeds").
-					Set("feeds", feeds)
-
-				p.Send(m)
-			}
+			return
 		}
-		p.save()
+
+		var title string
+		if feed, err := gofeed.NewParser().ParseURL(_url); err != nil {
+			log.Warnf("Failed to add feed: %s", err)
+			p.Send(
+				core.NewMessage("notify").
+					Set("content", "订阅失败"),
+			)
+			return
+		} else {
+			title = feed.Title
+		}
+
+		p.Lock()
+		p.feeds[_url] = &Feed{
+			URL: _url,
+			Dir: message.Get("dir").(string),
+		}
+		p.Unlock()
+		log.Infof("Add subscribe %s successfully", _url)
+
+		p.Send(
+			core.NewMessage("notify").
+				Set("content", fmt.Sprintf("订阅成功: %s", title)),
+		)
+
+		p.update()
+
+	case UnSub:
+		_url := message.Get("content").(string)
+
+		if feed, ok := p.feeds[_url]; ok {
+			p.Lock()
+			delete(p.feeds, _url)
+			p.Unlock()
+
+			p.Send(
+				core.NewMessage("notify").
+					Set("content", fmt.Sprintf("成功取消订阅: %s", feed.Title)),
+			)
+
+		} else {
+			p.Send(
+				core.NewMessage("notify").
+					Set("content", "订阅不存在！"),
+			)
+		}
+
+	case GetSub:
+		var feeds []*Feed
+		p.RLock()
+		for _, feed := range p.feeds {
+			feeds = append(feeds, feed)
+		}
+		p.RUnlock()
+
+		p.Reply(message, core.NewMessage("feeds").
+			Set("feeds", feeds),
+		)
 	}
 }
 
@@ -206,7 +193,10 @@ func (p *Puller) save() {
 
 	// only save the feeds
 	enc := gob.NewEncoder(file)
+
+	p.RLock()
 	_ = enc.Encode(p.feeds)
+	p.RUnlock()
 }
 
 func (p *Puller) restore(path string) {
@@ -219,7 +209,9 @@ func (p *Puller) restore(path string) {
 	}
 
 	dec := gob.NewDecoder(file)
+	p.Lock()
 	_ = dec.Decode(&p.feeds)
+	p.Unlock()
 }
 
 func (p *Puller) merge(feed *Feed) (update []*gofeed.Item) {
@@ -247,6 +239,9 @@ func (p *Puller) update() {
 
 	log.Debug("try to update database")
 
+	p.Lock()
+	defer p.Unlock()
+
 	for u, feed := range p.feeds {
 		newData, err := gofeed.NewParser().ParseURL(u)
 		if err != nil {
@@ -264,6 +259,7 @@ func (p *Puller) update() {
 		updated := p.merge(&Feed{
 			Feed: *newData,
 			URL:  u,
+			Dir:  feed.Dir,
 		})
 
 		for _, item := range updated {
@@ -275,7 +271,7 @@ func (p *Puller) update() {
 				p.Send(
 					core.NewMessage("item").
 						Set("content", u.String()).
-						Set("dir", feed.dir),
+						Set("dir", feed.Dir),
 				)
 			}
 		}

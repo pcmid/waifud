@@ -26,15 +26,15 @@ type Aria2c struct {
 
 	session string
 
-	missions map[string]*Mission
+	globalDir string
+	missions  map[string]*Mission
 
 	rpcc rpc.Client
 
 	sync.Mutex
 
-	sms chan core.Message
-
-	globalDir string
+	core.Receiver
+	core.Sender
 }
 
 type Mission struct {
@@ -55,6 +55,11 @@ func (a *Aria2c) ListeningTypes() []string {
 		"link",
 		"aria2c_api",
 	}
+}
+
+func (a *Aria2c) Start() {
+	a.Init()
+	a.Serve()
 }
 
 func (a *Aria2c) Init() {
@@ -98,14 +103,6 @@ func (a *Aria2c) Init() {
 	a.getGlobalDir()
 }
 
-func (a *Aria2c) SetMessageChan(ms chan core.Message) {
-	a.sms = ms
-}
-
-func (a *Aria2c) Send(message core.Message) {
-	a.sms <- message
-}
-
 func (a *Aria2c) Serve() {
 	tick := time.NewTicker(10 * time.Second)
 	tickForSave := time.NewTicker(5 * time.Minute)
@@ -142,10 +139,10 @@ func (a *Aria2c) Handle(message core.Message) {
 				}
 			}
 
-			m := core.NewMessage("status").
-				Set("missions", missions)
+			a.Reply(message, core.NewMessage("status").
+				Set("missions", missions),
+			)
 
-			a.Send(m)
 		}
 	case "item":
 		uri := message.Get("content").(string)
