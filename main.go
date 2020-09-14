@@ -15,27 +15,20 @@ func init() {
 	logFormatter := new(log.TextFormatter)
 	logFormatter.FullTimestamp = true
 	logFormatter.TimestampFormat = "2006-01-02 15:04:05"
-
 	logLevel := os.Getenv("LOGLEVEL")
-
 	levelMap := map[string]log.Level{
 		"TRACE": log.TraceLevel,
 		"DEBUG": log.DebugLevel,
-
 		"INFO":  log.InfoLevel,
 		"WARN":  log.WarnLevel,
 		"ERROR": log.ErrorLevel,
-
 		"FATAL": log.FatalLevel,
 		"PANIC": log.PanicLevel,
 	}
-
 	log.SetLevel(log.InfoLevel)
-
 	if level, ok := levelMap[logLevel]; ok {
 		log.SetLevel(level)
 	}
-
 	log.SetFormatter(logFormatter)
 }
 
@@ -47,19 +40,15 @@ var cliHelp = flag.BoolP("help", "h", false, "print this help")
 var cliVersion = flag.BoolP("version", "v", false, "print waifud version")
 
 func main() {
-
 	flag.Parse()
-
 	if *cliHelp {
 		flag.PrintDefaults()
 		return
 	}
-
 	if *cliVersion {
 		fmt.Printf("waidud %s\n", version)
 		return
 	}
-
 	viper.SetConfigType("yaml")
 	viper.SetConfigFile(*cliConfFile)
 	err := viper.ReadInConfig()
@@ -67,18 +56,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Fatal error config file: %s", err)
 	}
-
 	c := &core.Scheduler{}
-
 	for service := range viper.GetStringMapStringSlice("service") {
 		//Enabled by default
 		if viper.IsSet(fmt.Sprintf("service.%s.enable", service)) && viper.GetBool(fmt.Sprintf("service.%s.enable", service)) == false {
 			continue
 		}
-
 		c.Launch(service)
 		log.Tracef("Launched %s", service)
 	}
-
 	c.Loop()
 }

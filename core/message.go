@@ -23,3 +23,22 @@ func (m Message) Set(e string, v interface{}) Message {
 	m[e] = v
 	return m
 }
+
+func (m Message) WaitResponse() Message {
+	if v, ok := m["_response"]; ok {
+		return <-v.(chan Message)
+	}
+	return nil
+}
+
+func (m Message) Reply(r Message) {
+	if v, ok := m["_response"]; ok {
+		v.(chan Message) <- r
+	}
+}
+
+func (m Message) Close() {
+	if v, ok := m["_response"]; ok {
+		close(v.(chan Message))
+	}
+}
