@@ -16,9 +16,9 @@ func init() {
 }
 
 type TeleBot struct {
-	bot       *tb.Bot
-	chat      tb.Recipient
-	isPrivate bool
+	bot  *tb.Bot
+	chat tb.Recipient
+	//isPrivate bool
 	core.Receiver
 	core.Sender
 }
@@ -40,11 +40,11 @@ func (t *TeleBot) Init() {
 		os.Exit(-1)
 	}
 	log.Tracef("set telebot token %s", token)
-	t.isPrivate = viper.GetBool("service.telebot.private")
-	if t.isPrivate == false {
-		log.Warnf("telebot.private is been set false, everyone can access your bot!")
-	}
-	log.Tracef("set telebot private: %v", t.isPrivate)
+	//t.isPrivate = viper.GetBool("service.telebot.private")
+	//if t.isPrivate == false {
+	//	log.Warnf("telebot.private is been set false, everyone can access your bot!")
+	//}
+	//log.Tracef("set telebot private: %v", t.isPrivate)
 	b, err := tb.NewBot(tb.Settings{
 		Token:  token,
 		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
@@ -261,18 +261,20 @@ func (t *TeleBot) initAfterFailed(token string) *tb.Bot {
 }
 
 func (t *TeleBot) check(m *tb.Message) bool {
-	if !t.isPrivate {
-		t.chat = m.Sender
-		return true
-	}
-	if t.chat != nil {
-		log.Tracef("chat: %s", t.chat.Recipient())
-	}
-	log.Tracef("sender: %s", m.Sender.Recipient())
-	if t.isPrivate && t.chat != nil && t.chat.Recipient() == m.Sender.Recipient() {
-		return true
-	}
-	log.Warnf("unauthorized access: %v", m.Sender)
-	_, _ = t.bot.Send(m.Sender, "未授权的访问!")
-	return false
+	//if !t.isPrivate {
+	//	t.chat = m.Sender
+	//	return true
+	//}
+	//if t.chat != nil {
+	//	log.Tracef("chat: %s", t.chat.Recipient())
+	//}
+	//log.Tracef("sender: %s", m.Sender.Recipient())
+	//if t.isPrivate && t.chat != nil && t.chat.Recipient() == m.Sender.Recipient() {
+	//	return true
+	//}
+	//log.Warnf("unauthorized access: %v", m.Sender)
+	//_, _ = t.bot.Send(m.Sender, "未授权的访问!")
+	//return false
+	t.chat = m.Sender
+	return true
 }
