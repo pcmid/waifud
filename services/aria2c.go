@@ -186,10 +186,10 @@ func (a *Aria2c) download(url, dir string) error {
 }
 
 func (a *Aria2c) update() {
-	if a.ping() != nil {
-		return
-	}
 	for gid, mission := range a.missions {
+		if a.ping() != nil {
+			return
+		}
 		s, err := a.rpcc.TellStatus(gid)
 		if err != nil {
 			log.Errorf("Failed to get status for %s: %s", mission.Name, err)
