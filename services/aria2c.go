@@ -127,7 +127,7 @@ func (a *Aria2c) Handle(message core.Message) {
 				Set("missions", missions),
 			)
 		}
-	case "item":
+	case "item": // todo: ping
 		uri := message.Get("content").(string)
 		dir := message.Get("dir").(string)
 		if err := a.download(uri, dir); err != nil {
@@ -144,7 +144,7 @@ func (a *Aria2c) Handle(message core.Message) {
 		}
 		// slow down for next
 		time.Sleep(10 * time.Millisecond)
-	case "link":
+	case "link": //todo: ping
 		uri := message.Get("url").(string)
 		dir := message.Get("dir").(string)
 		if err := a.download(uri, dir); err != nil {
@@ -186,6 +186,9 @@ func (a *Aria2c) download(url, dir string) error {
 }
 
 func (a *Aria2c) update() {
+	if a.ping() != nil {
+		return
+	}
 	for gid, mission := range a.missions {
 		s, err := a.rpcc.TellStatus(gid)
 		if err != nil {
@@ -316,4 +319,11 @@ func (a *Aria2c) delMission(gid string) {
 	a.Lock()
 	delete(a.missions, gid)
 	a.Unlock()
+}
+
+func (a *Aria2c) ping() error {
+	if _, err := a.rpcc.GetVersion(); err != nil {
+		return err
+	}
+	return nil
 }
