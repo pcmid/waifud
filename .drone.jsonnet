@@ -38,7 +38,7 @@ local PipelineBuild(os='linux', arch='amd64') = {
         GO111MODULE: 'on',
       },
       commands: [
-        'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' +
+        'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' + 'CGO_ENABLED=0 ' +
         'go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_' + os + '_' + arch,
       ],
       when: {
@@ -55,7 +55,7 @@ local PipelineBuild(os='linux', arch='amd64') = {
         GO111MODULE: 'on',
       },
       commands: [
-        'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' +
+        'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' + 'CGO_ENABLED=0 ' +
         'go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_' + os + '_' + arch,
       ],
       when: {
