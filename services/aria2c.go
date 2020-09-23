@@ -168,14 +168,18 @@ func (a *Aria2c) connect() (err error) {
 		return
 	}
 	//for test
-	_, err = a.rpcc.GetSessionInfo()
+	_, err = a.rpcc.GetVersion()
 	return
 }
 
 func (a *Aria2c) download(url, dir string) error {
-	log.Infof("download %s at %s", url, a.globalDir+"/"+dir)
+	path := a.globalDir
+	if dir != "" {
+		path = path + "/" + dir
+	}
+	log.Infof("download %s at %s", url, path)
 	gid, err := a.rpcc.AddURI(url, rpc.Option{
-		"dir": a.globalDir + "/" + dir,
+		"dir": path,
 	})
 
 	if err != nil {
