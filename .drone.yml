@@ -1,5 +1,6 @@
 ---
 kind: pipeline
+type: docker
 name: testing
 
 platform:
@@ -14,6 +15,14 @@ steps:
   - go test
   environment:
     GO111MODULE: on
+  volumes:
+  - name: gopath
+    path: /go
+
+volumes:
+- name: gopath
+  host:
+    path: /mnt/go
 
 trigger:
   branch:
@@ -21,6 +30,7 @@ trigger:
 
 ---
 kind: pipeline
+type: docker
 name: linux_amd64
 
 platform:
@@ -32,10 +42,13 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_amd64
+  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_amd64
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+  volumes:
+  - name: gopath
+    path: /go
   when:
     event:
       exclude:
@@ -45,7 +58,7 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=amd64 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_amd64
+  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_amd64
   environment:
     GO111MODULE: on
   when:
@@ -62,6 +75,11 @@ steps:
     event:
     - tag
 
+volumes:
+- name: gopath
+  host:
+    path: /mnt/go
+
 trigger:
   branch:
   - master
@@ -71,6 +89,7 @@ depends_on:
 
 ---
 kind: pipeline
+type: docker
 name: linux_arm64
 
 platform:
@@ -82,10 +101,13 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=arm64 go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm64
+  - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm64
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+  volumes:
+  - name: gopath
+    path: /go
   when:
     event:
       exclude:
@@ -95,7 +117,7 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=arm64 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm64
+  - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm64
   environment:
     GO111MODULE: on
   when:
@@ -112,6 +134,11 @@ steps:
     event:
     - tag
 
+volumes:
+- name: gopath
+  host:
+    path: /mnt/go
+
 trigger:
   branch:
   - master
@@ -121,6 +148,7 @@ depends_on:
 
 ---
 kind: pipeline
+type: docker
 name: linux_arm
 
 platform:
@@ -132,10 +160,13 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=arm go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm
+  - GOOS=linux GOARCH=arm CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+  volumes:
+  - name: gopath
+    path: /go
   when:
     event:
       exclude:
@@ -145,7 +176,7 @@ steps:
   pull: always
   image: golang
   commands:
-  - GOOS=linux GOARCH=arm go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm
+  - GOOS=linux GOARCH=arm CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm
   environment:
     GO111MODULE: on
   when:
@@ -161,6 +192,11 @@ steps:
   when:
     event:
     - tag
+
+volumes:
+- name: gopath
+  host:
+    path: /mnt/go
 
 trigger:
   branch:
