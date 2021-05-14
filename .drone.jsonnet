@@ -1,37 +1,59 @@
 local PipelineTesting = {
   kind: 'pipeline',
   name: 'testing',
-  platform: {
-    os: 'linux',
-    arch: 'amd64',
-  },
+  type: 'kubernetes',
   steps: [
     {
       name: 'test',
       image: 'golang',
+      volumes: [
+        {
+          name: 'gopath',
+          path: '/go',
+        },
+      ],
       pull: 'always',
       environment: {
         GO111MODULE: 'on',
       },
       commands: [
+        'go mod download',
         'go test',
       ],
     },
   ],
+  volumes: [
+    {
+      name: 'gopath',
+      host: {
+        path: '/mnt/go',
+      },
+    },
+  ],
   trigger: {
-    branch: ['master'],
+    events: ['push'],
   },
 };
 local PipelineBuild(os='linux', arch='amd64') = {
   kind: 'pipeline',
   name: os + '_' + arch,
+  type: 'kubernetes',
   strigger: {
     branch: ['master'],
   },
+  depends_on: [
+    'testing',
+  ],
   steps: [
     {
       name: 'build-push',
       image: 'golang',
+      volumes: [
+        {
+          name: 'gopath',
+          path: '/go',
+        },
+      ],
       pull: 'always',
       environment: {
         CGO_ENABLED: '0',
@@ -39,7 +61,7 @@ local PipelineBuild(os='linux', arch='amd64') = {
       },
       commands: [
         'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' + 'CGO_ENABLED=0 ' +
-        'go build -v -ldflags "-s -w -X main.version=${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_' + os + '_' + arch,
+        'go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_' + os + '_' + arch,
       ],
       when: {
         event: {
@@ -74,11 +96,17 @@ local PipelineBuild(os='linux', arch='amd64') = {
       },
     },
   ],
-  depends_on: [
-    'testing',
+  volumes: [
+    {
+      name: 'gopath',
+      host: {
+        path: '/mnt/go',
+      },
+    },
   ],
   trigger: {
     branch: ['master'],
+    events: ['pull_request'],
   },
 };
 [
