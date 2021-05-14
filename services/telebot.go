@@ -136,7 +136,7 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 	}
 	payload := m.Payload
 	if payload == "" {
-		_, _ = t.bot.Send(m.Sender, "usage :/sub URL [dir]")
+		_, _ = t.bot.Send(m.Sender, "usage :/sub URL [tag]")
 		return
 	}
 	log.Trace(payload)
@@ -150,7 +150,7 @@ func (t *TeleBot) commandSub(m *tb.Message) {
 	resp := t.Send(core.NewMessage("subscription").
 		Set("content", url).
 		Set("operation", Sub).
-		Set("dir", dir),
+		Set("tag", dir),
 	).WaitResponse()
 	t.notify(resp.Get("message").(string), false)
 }
@@ -187,7 +187,7 @@ func (t *TeleBot) commandGetSub(m *tb.Message) {
 	resp := strings.Builder{}
 	resp.WriteString("订阅如下:\n")
 	for _, feed := range feeds {
-		resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.URL))
+		resp.WriteString(fmt.Sprintf("[%s](%s)\n", feed.Title, feed.Tag))
 	}
 	t.notify(resp.String(), true)
 }
