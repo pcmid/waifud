@@ -15,6 +15,9 @@ local PipelineTesting = {
       pull: 'always',
       environment: {
         GO111MODULE: 'on',
+        GOPROXY: {
+          from_secret: 'goproxy',
+        },
       },
       commands: [
         'go mod download',
@@ -38,6 +41,11 @@ local PipelineBuild(os='linux', arch='amd64') = {
   kind: 'pipeline',
   name: os + '_' + arch,
   type: 'kubernetes',
+  environment: {
+    GOPROXY: {
+      from_secret: 'goproxy',
+    },
+  },
   strigger: {
     branch: ['master'],
   },
@@ -58,8 +66,12 @@ local PipelineBuild(os='linux', arch='amd64') = {
       environment: {
         CGO_ENABLED: '0',
         GO111MODULE: 'on',
+        GOPROXY: {
+          from_secret: 'goproxy',
+        },
       },
       commands: [
+        'go mod download',
         'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' + 'CGO_ENABLED=0 ' +
         'go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_' + os + '_' + arch,
       ],
@@ -75,8 +87,12 @@ local PipelineBuild(os='linux', arch='amd64') = {
       pull: 'always',
       environment: {
         GO111MODULE: 'on',
+        GOPROXY: {
+          from_secret: 'goproxy',
+        },
       },
       commands: [
+        'go mod download',
         'GOOS=' + os + ' ' + 'GOARCH=' + arch + ' ' + 'CGO_ENABLED=0 ' +
         'go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_' + os + '_' + arch,
       ],
