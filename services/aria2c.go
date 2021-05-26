@@ -178,7 +178,7 @@ func (a *Aria2c) download(url, dir string) error {
 		path = path + "/" + dir
 	}
 	log.Infof("download %s at %s", url, path)
-	gid, err := a.rpcc.AddURI(url, rpc.Option{
+	gid, err := a.rpcc.AddURI([]string{url}, rpc.Option{
 		"dir": path,
 	})
 

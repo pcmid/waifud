@@ -1,6 +1,6 @@
 ---
 kind: pipeline
-type: docker
+type: kubernetes
 name: testing
 
 platform:
@@ -12,9 +12,12 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - go test
   environment:
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   volumes:
   - name: gopath
     path: /go
@@ -24,13 +27,9 @@ volumes:
   host:
     path: /mnt/go
 
-trigger:
-  branch:
-  - master
-
 ---
 kind: pipeline
-type: docker
+type: kubernetes
 name: linux_amd64
 
 platform:
@@ -42,10 +41,13 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_amd64
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   volumes:
   - name: gopath
     path: /go
@@ -58,9 +60,12 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_amd64
   environment:
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   when:
     event:
     - tag
@@ -89,7 +94,7 @@ depends_on:
 
 ---
 kind: pipeline
-type: docker
+type: kubernetes
 name: linux_arm64
 
 platform:
@@ -101,10 +106,13 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm64
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   volumes:
   - name: gopath
     path: /go
@@ -117,9 +125,12 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm64
   environment:
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   when:
     event:
     - tag
@@ -148,7 +159,7 @@ depends_on:
 
 ---
 kind: pipeline
-type: docker
+type: kubernetes
 name: linux_arm
 
 platform:
@@ -160,10 +171,13 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=arm CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=git-${DRONE_COMMIT_SHA:0:8}" -a -o build/${DRONE_REPO_NAME}_linux_arm
   environment:
     CGO_ENABLED: 0
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   volumes:
   - name: gopath
     path: /go
@@ -176,9 +190,12 @@ steps:
   pull: always
   image: golang
   commands:
+  - go mod download
   - GOOS=linux GOARCH=arm CGO_ENABLED=0 go build -v -ldflags "-s -w -X main.version=${DRONE_TAG##v}" -a -o release/${DRONE_REPO_NAME}_linux_arm
   environment:
     GO111MODULE: on
+    GOPROXY:
+      from_secret: goproxy
   when:
     event:
     - tag

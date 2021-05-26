@@ -36,9 +36,9 @@ type Puller struct {
 
 type Feed struct {
 	gofeed.Feed
-	URL        string
-	FiledCount int
-	Dir        string
+	Tag         string
+	URL         string
+	FailedCount int
 }
 
 func (p *Puller) Name() string {
@@ -59,8 +59,8 @@ func (p *Puller) Start() {
 func (p *Puller) Init() {
 	p.feeds = make(map[string]*Feed)
 	p.minTTL = time.Duration(MinTtl)
-	if viper.IsSet("service.database.min-ttl") {
-		p.minTTL = viper.GetDuration("service.database.min-ttl")
+	if viper.IsSet("service.puller.min-ttl") {
+		p.minTTL = viper.GetDuration("service.puller.min-ttl")
 	}
 	log.Tracef("set database min ttl %d", p.minTTL)
 	p.savedPath = "waifud.gob"
@@ -78,7 +78,7 @@ func (p *Puller) Init() {
 }
 
 func (p *Puller) Serve() {
-	log.Debug("database serve")
+	log.Debug("puller serve")
 	tick := time.NewTicker(time.Second * p.minTTL)
 	for {
 		<-tick.C
@@ -94,13 +94,16 @@ func (p *Puller) Handle(message core.Message) {
 		if feed, ok := p.feeds[_url]; ok {
 			log.Errorf("Feed %s already existed", feed.Title)
 			message.Reply(core.NewMessage("response").
-				Set("message", fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Title)).
+				Set("message", fmt.Sprintf("订阅 %s 已经存在", p.feeds[_url].Tag)).
 				Set("code", -1),
 			)
 			return
 		}
-		var title string
-		if feed, err := gofeed.NewParser().ParseURL(_url); err != nil {
+		feed := &Feed{
+			URL: _url,
+			Tag: message.Get("tag").(string),
+		}
+		if info, err := gofeed.NewParser().ParseURL(_url); err != nil {
 			log.Warnf("Failed to add feed: %s", err)
 			message.Reply(core.NewMessage("response").
 				Set("message", "添加订阅失败").
@@ -108,18 +111,25 @@ func (p *Puller) Handle(message core.Message) {
 			)
 			return
 		} else {
-			title = feed.Title
+			feed.Title = info.Title
 		}
 		p.Lock()
-		p.feeds[_url] = &Feed{
-			URL: _url,
-			Dir: message.Get("dir").(string),
-		}
+		p.feeds[_url] = feed
 		p.Unlock()
+
 		log.Infof("Add subscribe %s successfully", _url)
 
+		var name string
+		if len(feed.Tag) != 0 {
+			name = feed.Tag
+		} else if len(feed.Title) != 0 {
+			name = feed.Title
+		} else {
+			name = _url
+		}
+
 		message.Reply(core.NewMessage("response").
-			Set("message", fmt.Sprintf("订阅成功: %s", title)).
+			Set("message", fmt.Sprintf("订阅成功: %s", name)).
 			Set("code", 0),
 		)
 
@@ -213,17 +223,17 @@ func (p *Puller) update() {
 		newData, err := gofeed.NewParser().ParseURL(u)
 		if err != nil {
 			log.Errorf("Failed to parse %s: %s\n", u, err.Error())
-			feed.FiledCount++
-			if feed.FiledCount > 5 {
+			feed.FailedCount++
+			if feed.FailedCount > 5 {
 				log.Errorf("%s has failed over 5 times", feed.URL)
 			}
 			continue
 		}
-		feed.FiledCount = 0
+		feed.FailedCount = 0
 		updated := p.merge(&Feed{
 			Feed: *newData,
 			URL:  u,
-			Dir:  feed.Dir,
+			Tag:  feed.Tag,
 		})
 		for _, item := range updated {
 			for _, enclosure := range item.Enclosures {
@@ -232,7 +242,7 @@ func (p *Puller) update() {
 				u.RawQuery = q.Encode()
 				resp := p.Send(core.NewMessage("item").
 					Set("content", u.String()).
-					Set("dir", feed.Dir),
+					Set("dir", feed.Tag),
 				).WaitResponse()
 				if resp.Get("code") != 0 {
 					p.Send(core.NewMessage("notify").
